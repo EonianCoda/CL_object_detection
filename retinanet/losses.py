@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
+from collections import defaultdict
 def calc_iou(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
 
@@ -24,9 +24,9 @@ def calc_iou(a, b):
 class FocalLoss(nn.Module):
     #def __init__(self):
 
-    def forward(self, classifications, regressions, anchors, annotations, distill_loss = False, pre_class_num = 0, special_alpha = 1, enhance_error=False,decrease_positive=False):
+    def forward(self, classifications, regressions, anchors, annotations, distill_loss = False, pre_class_num = 0, special_alpha = 1, enhance_error=False,decrease_positive=False,each_cat_loss=False):
         
-        alpha = 0.5
+        alpha = 0.2
         gamma = 2.0
         batch_size = classifications.shape[0]
         classification_losses = []
@@ -141,18 +141,25 @@ class FocalLoss(nn.Module):
             
             # cls_loss = focal_weight * torch.pow(bce, gamma)
             cls_loss = focal_weight * bce
-            if enhance_error and pre_class_num != 0:
+            if not distill_loss and enhance_error and pre_class_num != 0:
                 print('enhace_error!')
-                cls_loss[:,pre_class_num:] *= 3
+                cls_loss[:,pre_class_num:] *= 2
                 
-                
-           
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
-            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+                
+            if not each_cat_loss:
+                classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+            else:
+                cls_loss = cls_loss[positive_indices,:].mean(dim=1)
+                cat_loss = defaultdict(list)
+                categories = assigned_annotations[positive_indices, 4].long()
+                for idx in range(categories.shape[0]):
+                    cat_loss[int(categories[idx])].append(float(cls_loss[idx]))
+                return cat_loss, 0
 
             # compute the loss for regression
 
@@ -195,12 +202,28 @@ class FocalLoss(nn.Module):
                     0.5 * 9.0 * torch.pow(regression_diff, 2),
                     regression_diff - 0.5 / 9.0
                 )
-                regression_losses.append(regression_loss.mean())
+                
+                if not each_cat_loss:
+                    regression_losses.append(regression_loss.mean())
+                else:
+                    regression_losses.append(regression_loss.mean(dim=0))
+               
             else:
                 if torch.cuda.is_available():
-                    regression_losses.append(torch.tensor(0).float().cuda())
+                    #regression_losses.append(torch.tensor(0).float().cuda())
+                    if not each_cat_loss:
+                        regression_losses.append(torch.tensor(0).float().cuda())
+                    else:
+                        
+                        regression_losses.append(torch.zeros(classification.shape[-1]).float().cuda())
                 else:
                     regression_losses.append(torch.tensor(0).float())
+                    
+#         if not each_cat_loss:
+#             return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
+#         else:
+#             del regression_losses
+#             return classification_losses
         return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
 #         if not distill_loss:
 #             return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)

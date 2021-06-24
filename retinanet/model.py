@@ -258,6 +258,7 @@ class ResNet(nn.Module):
         self.special_alpha = 1.0
         self.enhance_error = False
         self.decrease_positive = False
+        self.each_cat_loss = False
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -279,25 +280,43 @@ class ResNet(nn.Module):
         for layer in self.modules():
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()
-    def freeze_except_new_classification(self, status = False):
-        """set all layers except classificationModel.output requires_grad = statsu
-        """
+    def freeze_resnet_n_fpn(self, status = False):
         if status == False:
-            print('freeze all layer except newclassification')
+            print('freeze resnet and fpn')
         else:
-            print('unfreeze all layers')
+            print('unfreeze resnet and fpn')
         for name, parameter in self.named_parameters():
-            if "prev_model" not in name and "regressionModel" not in name and "fpn" not in name and "classificationModel" not in name:
+            if "prev_model" not in name and "regressionModel" not in name and "classificationModel" not in name:
                 parameter.requires_grad = status
-    
-    def freeze_resnet(self, status= False):
+    def freeze_resnet(self, status = False):
         if status == False:
             print('freeze resnet')
         else:
             print('unfreeze resnet')
         for name, parameter in self.named_parameters():
+            if "prev_model" not in name and "regressionModel" not in name and "classificationModel" not in name and "fpn" not in name:
+                parameter.requires_grad = status
+    def freeze_regression(self, status = False):
+        if status == False:
+            print('freeze regression')
+        else:
+            print('unfreeze regression')
+        for name, parameter in self.named_parameters():
+            if "prev_model" not in name and "classificationModel" not in name and "fpn" not in name:
+                parameter.requires_grad = status
+    
+    def freeze_except_new_classification(self, status= False):
+        """set all layers except classificationModel.output requires_grad = statsu
+        """
+        if status == False:
+            print('freeze all layer except newclassification')
+            
+        else:
+            print('unfreeze all layers')
+        for name, parameter in self.named_parameters():
             if "prev_model" not in name and "classificationModel.output" not in name:
                 parameter.requires_grad = status
+                
     def set_special_alpha(self,alpha):
         self.special_alpha = alpha
     
@@ -305,7 +324,7 @@ class ResNet(nn.Module):
     
     def forward(self, inputs):
 
-        if self.training:  
+        if self.training and (not self.distill_feature):  
             img_batch, annotations = inputs
         else:
             img_batch = inputs
@@ -334,7 +353,10 @@ class ResNet(nn.Module):
         elif self.training:
             
             if not self.distill_loss:
-                class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error)
+                if self.prev_model:
+                    class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
+                else:
+                    class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, each_cat_loss = self.each_cat_loss)
                 return (class_loss, reg_loss)
             else: #use distill loss
                 assert self.prev_model != None
@@ -346,10 +368,13 @@ class ResNet(nn.Module):
                     prev_features, prev_regression, prev_classification = self.prev_model(img_batch)
                 
                 
-                greater = torch.ge(prev_classification, 0.05) 
+                greater = torch.ge(prev_classification, 0.1) 
                 smoothL1Loss = nn.SmoothL1Loss()
 
                 dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
+                
+                #dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification, classification[:,:,:self.prev_model.num_classes])
+                #dist_class_loss /= greater.sum()
                 
 
                 dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim = 2)], regression[greater.any(dim = 2)])
@@ -367,6 +392,17 @@ class ResNet(nn.Module):
 #                 dist_class_loss = nn.MSELoss(reduction="sum")(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification[:,:,:self.prev_model.num_classes].view(-1, self.prev_model.num_classes)[negative, :])
 
 #                 dist_class_loss = dist_class_loss / prev_classification.shape[0]
+#                 ratio = 0.8
+#                 class_loss *= ratio
+#                 reg_loss *= ratio
+#                 dist_class_loss *= ratio
+#                 dist_reg_loss *= ratio
+#                 dist_feat_loss *= ratio
+
+#                 ratio = 0.8
+#                 dist_reg_loss *= ratio
+#                 class_loss *= ratio
+#                 reg_loss *= ratio
                 return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss)
         else:
             transformed_anchors = self.regressBoxes(anchors, regression)

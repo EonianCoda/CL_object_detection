@@ -2,12 +2,14 @@ import argparse
 import collections
 
 import os
+import random
 import numpy as np
 import time
 import torch
 import torch.optim as optim
 from torchvision import transforms
 
+from retinanet import MAS
 from retinanet import model
 from retinanet.dataloader import CocoDataset, CSVDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, \
     Normalizer
@@ -29,6 +31,8 @@ data_split = ""
 rehearsal_method = "random"
 rehearsal_per_num = 2
 
+mas_penalty = True
+
 # enhance new taks on old picture's loss
 enhance_error = False
 
@@ -38,6 +42,10 @@ decrease_positive = False
 # warm-up
 enable_warm_up = True
 warm_up_epoch = 10
+enable_warm_up2 = True
+warm_up_epoch2 = 10
+enable_warm_up3 = False
+warm_up_epoch3 = 10
 
 def autoDelete(model_path, now_round, now_epoch):
     global data_split
@@ -123,6 +131,7 @@ def main(args=None):
     global decrease_positive
     global enable_warm_up
     global warm_up_epoch
+    global mas_penalty
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
 
     parser.add_argument('--dataset', help='Dataset type, must be one of csv or coco.')
@@ -171,15 +180,19 @@ def main(args=None):
         if rehearsal_method != None:
             img_ids = None
             #good example
-            img_ids = [2010005199,2009000248,2009000777,2008002204,2008006064,2009004121,2011000804,2008005761,2010005182,
-                     2008006898,2009005031,2009001390,2009002343,2009003482,2009000604,2010005266,2009002060,
-                       2010000492,2008003629,2011002422,2008001856,2009003685,2008002872,2010004808,
-                       2008005714,2008006355,2010002696,2009000088,2010001503,2008007237]
+#             img_ids = [2010005199,2009000248,2009000777,2008002204,2008006064,2009004121,2011000804,2008005761,2010005182,
+#                      2008006898,2009005031,2009001390,2009002343,2009003482,2009000604,2010005266,2009002060,
+#                        2010000492,2008003629,2011002422,2008001856,2009003685,2008002872,2010004808,
+#                        2008005714,2008006355,2010002696,2009000088,2010001503,2008007237]
             #bad example
 #             img_ids = [2009004162,2011000420,2010001550,2008008701,2010005670,2008007421,2009004871,
 #                          2009004328,2011000651,2008004365,2008008479,2008007629,2008006586,2008007653,
 #                          2011000492,2008005616,2008007697,2009004984,2010001366,2009000969,2009001693,2009000503,
 #                          2010002529,2011001971,2011002189,2009002472,2009000774,2009004683,2011002884,2009002416]
+            img_ids = [2008002080, 2008001302, 2010004059, 2010001043, 2009004340, 2008004603, 2009004871, 2009004383, 2010004848,
+                       2011000233, 2009001541, 2008007629, 2008002850, 2008008616, 2010004660, 2010002870, 2008006004, 2009005057, 
+                       2011002818, 2010003078, 2009001751, 2010003929, 2009005037, 2009005177, 2008008521, 2008008121, 2010000484, 
+                       2008001479, 2010004247, 2009001147]
             if img_ids == None:
                 rehearsal_dataset = rehearsal_DataSet(parser.coco_path, set_name='TrainVoc2012', dataset = 'voc',
                                         transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]), 
@@ -238,7 +251,9 @@ def main(args=None):
         readCheckpoint(method, parser.start_round, parser.start_epoch - 1, retinanet, optimizer, scheduler)
         if parser.start_round > 1 and method == 'w_distillation' and parser.val == 'None':
             retinanet.init_prev_model(load_previous_model(parser.start_round - 1, dataset_train.classOrder))
-        
+            if mas_penalty:
+                mas = MAS.MAS(retinanet, dataset_train)
+                mas.load_importance(os.path.join(root_path, 'model', method, 'round{}'.format(1), data_split))
             if rehearsal_method != None:
                 print('read hearsal dataset chekcpoint at Round{},Epoch{}'.format(parser.start_round, parser.start_epoch - 1))
                 checkpoint = torch.load(get_checkpoint_path(method, parser.start_round, parser.start_epoch - 1))
@@ -269,34 +284,43 @@ def main(args=None):
         #whem next round, reset start epoch
         if now_round != parser.start_round:
             parser.start_epoch = 1
-            
+            parser.total_epoch = 60
         
         # Freeze model, do warm-up
-#         if enable_warm_up and now_round != 2:
-#             retinanet.freeze_except_new_classification(False)
-        if enable_warm_up:
-            retinanet.freeze_resnet(False)
+        if enable_warm_up and parser.start_epoch < warm_up_epoch + 1:
+            retinanet.freeze_except_new_classification(False)
           
         retinanet.train()
         retinanet.freeze_bn()
         
         for epoch_num in range(parser.start_epoch , parser.total_epoch + 1):
             
-            # unfreeze model, stop warm-up
-            if epoch_num == warm_up_epoch + 1: 
-#                 retinanet.freeze_except_new_classification(True)
-#                 retinanet.freeze_bn()
-                retinanet.freeze_resnet(True)
+            # unfreeze classification/regression subnet, then freeze restnet+fpn
+            if enable_warm_up and epoch_num == warm_up_epoch + 1: 
+                retinanet.freeze_except_new_classification(True)
+                if enable_warm_up2:
+#                     retinanet.freeze_regression(False)
+                    retinanet.freeze_resnet(False)
+#                     retinanet.freeze_resnet_n_fpn(False)
                 retinanet.freeze_bn()
+            # unfreeze resnet+fpn, then freeze restnet
+            if epoch_num == warm_up_epoch + warm_up_epoch2 + 1:
+#                 retinanet.freeze_regression(True)
+                retinanet.freeze_resnet(True)
+#                 retinanet.freeze_resnet_n_fpn(True)
+#                 retinanet.freeze_resnet(False)
+                retinanet.freeze_bn()
+#                 if enable_warm_up3:
+
+#                 retinanet.freeze_bn()    
+                
+#             # unfreeze all layer
+#             if enable_warm_up3 and epoch_num == warm_up_epoch + warm_up_epoch2 + warm_up_epoch3 + 1:
+#                 retinanet.freeze_resnet(True)
+#                 retinanet.freeze_bn()
             
             
-            # Warm-up Hint
-            if enable_warm_up and epoch_num <= warm_up_epoch:
-                print('Warm up')
             epoch_loss = []
-            
-#             if epoch_num > 5:
-#                 retinanet.set_special_alpha(10.0)
             retinanet.decrease_positive = decrease_positive
             for iter_num, data in enumerate(dataloader_train):
                 start = time.time()
@@ -320,6 +344,10 @@ def main(args=None):
                         #add distillation loss
                         if retinanet.distill_loss:
                             loss += dist_class_loss + dist_reg_loss + dist_feat_loss
+                            #mas penalty
+                            if mas_penalty:
+                                mas_loss = mas.penalty(retinanet)
+                                loss += mas_loss
 
                         if bool(loss == 0):
                             continue
@@ -327,7 +355,7 @@ def main(args=None):
                         loss.backward()
 
 
-                        #Eliminate old task grad
+    #                         Eliminate old task grad
                         if enable_warm_up and now_round > 1 and epoch_num <= warm_up_epoch:
                             for i in range(retinanet.classificationModel.num_anchors):
                                 retinanet.classificationModel.output.weight.grad[i * retinanet.num_classes : i * retinanet.num_classes + retinanet.prev_num_classes,:,:,:] = 0
@@ -344,13 +372,42 @@ def main(args=None):
 
                         if not retinanet.distill_loss:
                             print('Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
-                        else:
+                        elif not mas_penalty:
                             print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss), np.mean(loss_hist),end - start))
+                        else:
+                            print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | mas_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss),float(mas_loss), np.mean(loss_hist),end - start))
+
 
                         del classification_loss
                         del regression_loss
                         if retinanet.distill_loss:
                             del dist_class_loss, dist_reg_loss, dist_feat_loss
+
+#                         #random sample
+#                         if enable_warm_up and epoch_num > warm_up_epoch and epoch_num < warm_up_epoch + warm_up_epoch2 + 1:
+#                             prev_status = retinanet.distill_loss
+#                             retinanet.distill_loss = False
+#                             random_sample_num = 5
+#                             idxs = random.sample(range(len(rehearsal_dataset)), random_sample_num)
+#                             for i in range(random_sample_num):
+#                                 data = rehearsal_dataset[idxs[i]]
+#                                 with torch.cuda.device(0):
+#                                     optimizer.zero_grad()
+#                                     losses = retinanet([data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), data['annot'].cuda().unsqueeze(dim=0)])
+#                                     classification_loss, regression_loss = losses
+#                                     classification_loss = classification_loss.mean()
+#                                     regression_loss = regression_loss.mean()
+#                                     loss = classification_loss + regression_loss
+#                                     if bool(loss == 0):
+#                                         continue
+#                                     loss.backward()
+#                                     torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
+#                                     optimizer.step()
+#                                     print('Random Sample, Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f}'.format(i, float(classification_loss), float(regression_loss)))
+
+#                                 del classification_loss
+#                                 del regression_loss
+#                             retinanet.distill_loss = prev_status
                 except Exception as e:
                     print(e)
                     continue
@@ -373,10 +430,11 @@ def main(args=None):
                 retinanet.enhance_error = enhance_error
                 print('Rehearsal start!')
                 
-                
                 for iter_num, data in enumerate(dataloader_rehearsal):
-                    if enable_warm_up and epoch_num <= warm_up_epoch:
+                    if enable_warm_up and (epoch_num <= warm_up_epoch):
                         break
+#                     if enable_warm_up2 and epoch_num <= warm_up_epoch+warm_up_epoch2 + 1:
+#                         break
                     start = time.time()
                     try:
                         optimizer.zero_grad()
@@ -394,19 +452,19 @@ def main(args=None):
 
                             if bool(loss == 0):
                                 continue
-
+                                  
+#                             if loss <= np.mean(loss_hist) / 2:
+#                                 ratio = ((np.mean(loss_hist) / 2) / loss)
+#                                 classification_loss *= ratio
+#                                 regression_loss *= ratio
+#                                 loss = classification_loss + regression_loss
                             loss.backward()
-
                             torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
-
                             optimizer.step()
                             loss_hist.append(float(loss))
-
                             epoch_loss.append(float(loss))
                             end = time.time()
-
                             print('Rehearsal Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
-                            
                             del classification_loss
                             del regression_loss
                     except Exception as e:
@@ -416,7 +474,7 @@ def main(args=None):
             
                 retinanet.distill_loss = prev_status
                 retinanet.enhance_error = False
-
+            
             scheduler.step(np.mean(epoch_loss))
             savePath = get_checkpoint_path(method, now_round, epoch_num)
             #if thd directory doesn't exist, then create it
@@ -470,7 +528,8 @@ def main(args=None):
         #reset optimizer and scheduler
         prev_model = retinanet.prev_model
         retinanet.prev_model = None
-        
+
+    
         optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
         retinanet.prev_model = prev_model
@@ -480,7 +539,10 @@ def main(args=None):
             sampler = AspectRatioBasedSampler(rehearsal_dataset, batch_size = 3, drop_last=False)
             dataloader_rehearsal = DataLoader(rehearsal_dataset, num_workers=2, collate_fn=collater, batch_sampler=sampler)
        
-            
+        #MAS
+        if mas_penalty:
+            mas = MAS.MAS(retinanet, dataset_train)
+            mas.load_importance(os.path.join(root_path, 'model', method, 'round{}'.format(now_round), data_split))
         #change the training data
         sampler = AspectRatioBasedSampler(dataset_train, batch_size = parser.batch_size, drop_last=False)
         dataloader_train = DataLoader(dataset_train, num_workers=2, collate_fn=collater, batch_sampler=sampler)

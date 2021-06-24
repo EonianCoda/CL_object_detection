@@ -194,6 +194,12 @@ class CocoDataset_inOrder(Dataset):
 
     def update_imgIds(self):
         self.image_ids = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
+#         if ("Val" in self.set_name) or ("Test" in self.set_name):
+#             self.image_ids = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
+#         else:
+#             imgIds = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
+#             self.image_ids = imgIds[:len(imgIds)// 4]
+        
         
             
 
@@ -402,9 +408,10 @@ class rehearsal_DataSet(Dataset):
         
         with open(os.path.join('/'.join(self.root_dir.split('/')[:-2]), 'model', 'w_distillation', 'round1' , self.data_split, 'losses.pickle'), 'rb') as f:
             losses = pickle.load(f)
-        
+        #Exception
         if now_round == 1:
             raise(ValueError("Now round cannot be 1."))
+            
         print('Sample data on Round{}'.format(now_round))
         self.now_round = now_round
         
@@ -429,9 +436,13 @@ class rehearsal_DataSet(Dataset):
                 imgIds = list(imgIds)
                 
                 cur_losses = [losses[img_id][2] for img_id in imgIds]
+                
+                #cur_losses = [losses[self.coco_labels_inverse[CID]][img_id] for img_id in set(losses[self.coco_labels_inverse[CID]].keys() - future_imgIds)]
+                #cur_losses = [losses[self.coco_labels_inverse[CID]][img_id] for img_id in imgIds]
                 ids = sorted(range(len(cur_losses)), key=lambda k: cur_losses[k])
                 
-                self.image_ids.extend([imgIds[id_] for id_ in ids[len(imgIds) - self.per_num:]])
+                #self.image_ids.extend([imgIds[id_] for id_ in ids[:self.per_num]])
+                self.image_ids.extend([imgIds[id_] for id_ in ids[len(ids) - self.per_num:]])
                 
                 # self.image_ids.extend(random.sample(imgIds, self.per_num))
     
