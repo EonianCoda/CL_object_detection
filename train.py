@@ -9,7 +9,7 @@ import torch
 import torch.optim as optim
 from torchvision import transforms
 
-from retinanet import MAS
+from retinanet import MAS, a_gem
 from retinanet import model
 from retinanet.dataloader import CocoDataset, CSVDataset, collater, Resizer, AspectRatioBasedSampler, Augmenter, \
     Normalizer
@@ -22,6 +22,9 @@ import pickle
 import copy
 assert torch.__version__.split('.')[0] == '1'
 
+#enable A_GEM
+enable_agem = False
+
 root_path = ''
 method = 'w_distillation'
 w_distillation = True
@@ -31,10 +34,10 @@ data_split = ""
 rehearsal_method = "random"
 rehearsal_per_num = 2
 
-mas_penalty = True
+mas_penalty = False
 
 # enhance new taks on old picture's loss
-enhance_error = False
+enhance_error = True
 
 # when calculate new task'focal loss，the ground truth label 1 -> 0.9
 decrease_positive = False
@@ -193,6 +196,9 @@ def main(args=None):
                        2011000233, 2009001541, 2008007629, 2008002850, 2008008616, 2010004660, 2010002870, 2008006004, 2009005057, 
                        2011002818, 2010003078, 2009001751, 2010003929, 2009005037, 2009005177, 2008008521, 2008008121, 2010000484, 
                        2008001479, 2010004247, 2009001147]
+
+            #for 1
+#             img_ids = [2008001302, 2010004059, 2008004603, 2009004871, 2010004848, 2011002114, 2008008616, 2010002870, 2009005057, 2010003078, 2008006923, 2009001948, 2009003510, 2008001479, 2010004247]
             if img_ids == None:
                 rehearsal_dataset = rehearsal_DataSet(parser.coco_path, set_name='TrainVoc2012', dataset = 'voc',
                                         transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]), 
@@ -232,15 +238,6 @@ def main(args=None):
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
-    
-    #very special increase
-    ###################################################################################
-#     readCheckpoint(method, 0, 20, retinanet, optimizer, scheduler)
-#     retinanet.special_increase(dataset_train)
-#     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
-#     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
-#     dataset_train.num_classes()
-    ####################################################################################
     
     #read checkpoint
     if parser.start_round != 1 or parser.start_epoch != 1:
@@ -293,10 +290,27 @@ def main(args=None):
         retinanet.train()
         retinanet.freeze_bn()
         
+        ################################
+        #            A-GEM             #           
+        ################################
+#         #update rehearsal dataset
+#         if now_round > 1:
+#             if rehearsal_dataset.now_round == None:
+#                 if len(rehearsal_dataset.image_ids) == 0:
+#                     rehearsal_dataset.reset_by_round(now_round)
+#                 else:
+#                     rehearsal_dataset.now_round = now_round
+#             if enable_agem:
+#                 print("create agem")
+#                 agem = a_gem.A_GEM(retinanet, rehearsal_dataset, parser.batch_size)
+        
+        
         for epoch_num in range(parser.start_epoch , parser.total_epoch + 1):
             
             # unfreeze classification/regression subnet, then freeze restnet+fpn
-            if enable_warm_up and epoch_num == warm_up_epoch + 1: 
+            if enable_warm_up and epoch_num == warm_up_epoch + 1:
+#                 for g in optimizer.param_groups:
+#                     g['lr'] = 1e-6
                 retinanet.freeze_except_new_classification(True)
                 if enable_warm_up2:
 #                     retinanet.freeze_regression(False)
@@ -305,6 +319,8 @@ def main(args=None):
                 retinanet.freeze_bn()
             # unfreeze resnet+fpn, then freeze restnet
             if epoch_num == warm_up_epoch + warm_up_epoch2 + 1:
+#                 for g in optimizer.param_groups:
+#                     g['lr'] = 1e-7
 #                 retinanet.freeze_regression(True)
                 retinanet.freeze_resnet(True)
 #                 retinanet.freeze_resnet_n_fpn(True)
@@ -322,96 +338,133 @@ def main(args=None):
             
             epoch_loss = []
             retinanet.decrease_positive = decrease_positive
+#             retinanet.enhance_error = enhance_error
+
             for iter_num, data in enumerate(dataloader_train):
+                if enable_warm_up and epoch_num >= warm_up_epoch + 1 and enable_agem:
+                    agem.cal_replay_grad(optimizer)
+                    
                 start = time.time()
-                try:
-                    optimizer.zero_grad()
-                    with torch.cuda.device(0):
-                        if torch.cuda.is_available():
-                            losses = retinanet([data['img'].float().cuda(), data['annot'].cuda()])
-                            if retinanet.distill_loss:
-                                classification_loss, regression_loss, dist_class_loss, dist_reg_loss, dist_feat_loss = losses
-                            else:
-                                classification_loss, regression_loss = losses
+                #try:
+                optimizer.zero_grad()
+                with torch.cuda.device(0):
+                    if torch.cuda.is_available():
+                        losses = retinanet([data['img'].float().cuda(), data['annot'].cuda()])
+                        if retinanet.enhance_error and retinanet.distill_loss:
+                            classification_loss, regression_loss, dist_class_loss, dist_reg_loss, dist_feat_loss, enhance_loss = losses
+                        elif retinanet.distill_loss:
+                            classification_loss, regression_loss, dist_class_loss, dist_reg_loss, dist_feat_loss = losses
                         else:
-                            print('not have gpu')
-                            return
+                            classification_loss, regression_loss = losses
+                    else:
+                        print('not have gpu')
+                        return
 
-                        classification_loss = classification_loss.mean()
-                        regression_loss = regression_loss.mean()
-                        loss = classification_loss + regression_loss
+                    classification_loss = classification_loss.mean()
+                    regression_loss = regression_loss.mean()
+                    loss = classification_loss + regression_loss
 
-                        #add distillation loss
-                        if retinanet.distill_loss:
-                            loss += dist_class_loss + dist_reg_loss + dist_feat_loss
-                            #mas penalty
-                            if mas_penalty:
-                                mas_loss = mas.penalty(retinanet)
-                                loss += mas_loss
-
-                        if bool(loss == 0):
-                            continue
-
-                        loss.backward()
-
-
-    #                         Eliminate old task grad
-                        if enable_warm_up and now_round > 1 and epoch_num <= warm_up_epoch:
-                            for i in range(retinanet.classificationModel.num_anchors):
-                                retinanet.classificationModel.output.weight.grad[i * retinanet.num_classes : i * retinanet.num_classes + retinanet.prev_num_classes,:,:,:] = 0
-                                retinanet.classificationModel.output.bias.grad[i * retinanet.num_classes : i * retinanet.num_classes + retinanet.prev_num_classes] =  0
-                        torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
-
-
-
-                        optimizer.step()
-                        loss_hist.append(float(loss))
-
-                        epoch_loss.append(float(loss))
-                        end = time.time()
-
-                        if not retinanet.distill_loss:
-                            print('Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
-                        elif not mas_penalty:
-                            print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss), np.mean(loss_hist),end - start))
+                    #add distillation loss
+                    if retinanet.distill_loss:
+                        loss += dist_class_loss + dist_reg_loss + dist_feat_loss
+                        #mas penalty
+                        if mas_penalty:
+                            mas_loss = mas.penalty(retinanet)
+                            loss += mas_loss
+                        if enable_warm_up and now_round > 1 and epoch_num > warm_up_epoch:
+                            if retinanet.enhance_error:
+                                if enhance_loss != None:
+                                    loss += enhance_loss
+                                else:
+                                    enhance_loss = 0
                         else:
-                            print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | mas_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss),float(mas_loss), np.mean(loss_hist),end - start))
+                            enhance_loss = 0
+
+                    if bool(loss == 0):
+                        continue
+
+                    loss.backward()
+
+                    # Eliminate old task grad in 1-stage warm-up
+                    if enable_warm_up and now_round > 1 and epoch_num <= warm_up_epoch:
+                        for i in range(retinanet.classificationModel.num_anchors):
+                            retinanet.classificationModel.output.weight.grad[i * retinanet.num_classes : i * retinanet.num_classes + retinanet.prev_num_classes,:,:,:] = 0
+                            retinanet.classificationModel.output.bias.grad[i * retinanet.num_classes : i * retinanet.num_classes + retinanet.prev_num_classes] =  0
 
 
-                        del classification_loss
-                        del regression_loss
-                        if retinanet.distill_loss:
-                            del dist_class_loss, dist_reg_loss, dist_feat_loss
+                    #######################
+                    #   A-GEM proj grad   #
+                    #######################
+                    if enable_agem and enable_warm_up and epoch_num >= warm_up_epoch + 1:
+                        agem.fix_grad()
 
-#                         #random sample
-#                         if enable_warm_up and epoch_num > warm_up_epoch and epoch_num < warm_up_epoch + warm_up_epoch2 + 1:
-#                             prev_status = retinanet.distill_loss
-#                             retinanet.distill_loss = False
-#                             random_sample_num = 5
-#                             idxs = random.sample(range(len(rehearsal_dataset)), random_sample_num)
-#                             for i in range(random_sample_num):
-#                                 data = rehearsal_dataset[idxs[i]]
-#                                 with torch.cuda.device(0):
-#                                     optimizer.zero_grad()
-#                                     losses = retinanet([data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), data['annot'].cuda().unsqueeze(dim=0)])
-#                                     classification_loss, regression_loss = losses
-#                                     classification_loss = classification_loss.mean()
-#                                     regression_loss = regression_loss.mean()
-#                                     loss = classification_loss + regression_loss
-#                                     if bool(loss == 0):
-#                                         continue
-#                                     loss.backward()
-#                                     torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
-#                                     optimizer.step()
-#                                     print('Random Sample, Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f}'.format(i, float(classification_loss), float(regression_loss)))
 
-#                                 del classification_loss
-#                                 del regression_loss
-#                             retinanet.distill_loss = prev_status
-                except Exception as e:
-                    print(e)
-                    continue
-            
+                    torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
+
+                    ####################
+                    #   special clip   #
+                    ####################
+#                         if now_round > 1 and (not enable_warm_up or (enable_warm_up and epoch_num > warm_up_epoch)):
+#                             for name, p in retinanet.named_parameters():
+#                                 if "prev_model" not in name and "bn" not in name and p.requires_grad:
+#                                     temp = p.abs()
+#                                     grad_std = torch.std(temp)
+#                                     grad_mean = torch.mean(temp)
+#                                     threshold = grad_mean - 1.5 * grad_std
+
+# #                                     temp = p.abs()
+# #                                     threshold = torch.quantile(temp, 0.001)
+# #                                     print((temp < threshold).sum())
+#                                     p.grad[temp < threshold] = 0
+
+                    optimizer.step()
+                    loss_hist.append(float(loss))
+
+                    epoch_loss.append(float(loss))
+                    end = time.time()
+
+
+                    info = [epoch_num, iter_num, float(classification_loss), float(regression_loss)]
+                    output = 'Epoch: {0[0]} | Iteration: {0[1]} | Classification loss: {0[2]:1.5f} | Regression loss: {0[3]:1.5f}'
+
+                    # distillation loss
+                    if retinanet.distill_loss:
+                        output += ' | dis_class_loss: {0[4]:1.4f} | dis_reg_loss: {0[5]:1.4f} | dis_feat_loss: {0[6]:1.4f}'
+                        info.extend([float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss)])
+                    # Mas loss
+                    if mas_penalty:
+                        output += ' | mas_loss: {0[%d]:1.4f}' % (len(info))
+                        info.append(float(mas_loss))
+
+                    #enhance_loss
+                    if retinanet.enhance_error:
+                        output += ' | enhance_loss: {0[%d]:1.4f}' % (len(info))
+                        info.append(float(enhance_loss))
+
+                    output += ' | Running loss: {0[%d]:1.5f} | Spend Time:{0[%d]:1.2f}s' % (len(info), len(info) + 1)
+                    info.extend([np.mean(loss_hist), end - start])
+                    print(output.format(info))
+
+#                         if not retinanet.distill_loss:
+#                             print('Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
+
+#                         elif not mas_penalty:
+#                             if enhance_error:
+#                                  print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss), np.mean(loss_hist),end - start))
+#                             else:
+#                                 print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss), np.mean(loss_hist),end - start))
+#                         else:
+#                             print('Epoch: {} | Iteration: {} | Class loss: {:1.4f} | Reg loss: {:1.4f} | dis_class_loss: {:1.4f} | dis_reg_loss: {:1.4f} | dis_feat_loss: {:1.4f} | mas_loss: {:1.4f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), float(dist_class_loss), float(dist_reg_loss), float(dist_feat_loss),float(mas_loss), np.mean(loss_hist),end - start))
+
+
+                    del classification_loss
+                    del regression_loss
+                    if retinanet.distill_loss:
+                        del dist_class_loss, dist_reg_loss, dist_feat_loss
+#                 except Exception as e:
+#                     print(e)
+#                     continue
+            retinanet.enhance_error = False
             retinanet.decrease_positive = False
             if rehearsal_method != None and now_round != 1:
 
@@ -422,7 +475,7 @@ def main(args=None):
                         rehearsal_dataset.now_round = now_round
                 
                 if dataloader_rehearsal == None:
-                    sampler = AspectRatioBasedSampler(rehearsal_dataset, batch_size = 3, drop_last=False)
+                    sampler = AspectRatioBasedSampler(rehearsal_dataset, batch_size = 5, drop_last=False)
                     dataloader_rehearsal = DataLoader(rehearsal_dataset, num_workers=2, collate_fn=collater, batch_sampler=sampler)  
                 prev_status = retinanet.distill_loss
                 retinanet.distill_loss = False
@@ -440,8 +493,12 @@ def main(args=None):
                         optimizer.zero_grad()
                         with torch.cuda.device(0):
                             if torch.cuda.is_available():
+
                                 losses = retinanet([data['img'].float().cuda(), data['annot'].cuda()])
-                                classification_loss, regression_loss = losses
+                                if not enhance_error:
+                                    classification_loss, regression_loss = losses
+                                else:
+                                    classification_loss, regression_loss, enhance_loss = losses
                             else:
                                 print('not have gpu')
                                 return
@@ -449,24 +506,29 @@ def main(args=None):
                             classification_loss = classification_loss.mean()
                             regression_loss = regression_loss.mean()
                             loss = classification_loss + regression_loss
-
+                            if enhance_error:
+                                loss += enhance_loss
                             if bool(loss == 0):
                                 continue
-                                  
-#                             if loss <= np.mean(loss_hist) / 2:
-#                                 ratio = ((np.mean(loss_hist) / 2) / loss)
-#                                 classification_loss *= ratio
-#                                 regression_loss *= ratio
-#                                 loss = classification_loss + regression_loss
+
+    #                             if loss <= np.mean(loss_hist) / 2:
+    #                                 ratio = ((np.mean(loss_hist) / 2) / loss)
+    #                                 classification_loss *= ratio
+    #                                 regression_loss *= ratio
+    #                                 loss = classification_loss + regression_loss
                             loss.backward()
                             torch.nn.utils.clip_grad_norm_(retinanet.parameters(), 0.1)
                             optimizer.step()
                             loss_hist.append(float(loss))
                             epoch_loss.append(float(loss))
                             end = time.time()
-                            print('Rehearsal Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
+                            if not enhance_error:
+                                print('Rehearsal Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss), np.mean(loss_hist),end - start))
+                            else:
+                                print('Rehearsal Epoch: {} | Iteration: {} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Enhance loss: {:1.5f} | Running loss: {:1.5f} | Spend Time:{:1.2f}s'.format(epoch_num, iter_num, float(classification_loss), float(regression_loss),float(enhance_loss), np.mean(loss_hist),end - start))
                             del classification_loss
                             del regression_loss
+
                     except Exception as e:
                         print(e)
                         continue
@@ -475,7 +537,7 @@ def main(args=None):
                 retinanet.distill_loss = prev_status
                 retinanet.enhance_error = False
             
-            scheduler.step(np.mean(epoch_loss))
+            #scheduler.step(np.mean(epoch_loss))
             savePath = get_checkpoint_path(method, now_round, epoch_num)
             #if thd directory doesn't exist, then create it
             dirPath = '/'.join(savePath.split('/')[:-1])

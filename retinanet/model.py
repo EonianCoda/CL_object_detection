@@ -126,7 +126,7 @@ class ClassificationModel(nn.Module):
 
         self.output = nn.Conv2d(feature_size, num_anchors * num_classes, kernel_size=3, padding=1) #num_anchors(A) * num_classes(K)
         self.output_act = nn.Sigmoid()
-
+        self.enable_act = True
     def forward(self, x):
         out = self.conv1(x)
         out = self.act1(out)
@@ -141,7 +141,8 @@ class ClassificationModel(nn.Module):
         out = self.act4(out)
 
         out = self.output(out)
-        out = self.output_act(out)
+        if self.enable_act:
+            out = self.output_act(out)
 
         # out is B x C x W x H, with C = n_classes + n_anchors
         out1 = out.permute(0, 2, 3, 1)
@@ -314,6 +315,9 @@ class ResNet(nn.Module):
         else:
             print('unfreeze all layers')
         for name, parameter in self.named_parameters():
+#             if "prev_model" not in name and "classificationModel.output" not in name and "regressionModel.output" not in name:
+#                 parameter.requires_grad = status
+            
             if "prev_model" not in name and "classificationModel.output" not in name:
                 parameter.requires_grad = status
                 
@@ -343,6 +347,13 @@ class ResNet(nn.Module):
         
         regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)
 
+        ################################
+        #          Use Logits          #           
+        ################################
+        self.classificationModel.enable_act = (not self.distill_loss)
+        if self.distill_feature:
+            self.classificationModel.enable_act = False
+
         classification = torch.cat([self.classificationModel(feature) for feature in features], dim=1) #shape = (batch_size, W*H*A(Anchor_num), class_num)
         
         anchors = self.anchors(img_batch)
@@ -352,58 +363,107 @@ class ResNet(nn.Module):
             return (features, regression, classification)
         elif self.training:
             
+            #no distill loss
             if not self.distill_loss:
                 if self.prev_model:
-                    class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
+                    if not self.enhance_error:
+                        class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
+                    else:
+                        class_loss, reg_loss, enhance_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
                 else:
                     class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, each_cat_loss = self.each_cat_loss)
-                return (class_loss, reg_loss)
-            else: #use distill loss
+                    
+                if not self.enhance_error:
+                    return (class_loss, reg_loss)
+                else:
+                    return (class_loss, reg_loss, enhance_loss)
+            #use distill loss
+            else: 
                 assert self.prev_model != None
                 self.prev_model.eval()
                 self.prev_model.training = False
-                class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes,special_alpha=self.special_alpha,decrease_positive=self.decrease_positive)
-#                 class_loss, reg_loss, negative = self.focalLoss(classification, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes,special_alpha=self.special_alpha)
+                
+                #use label
+                if self.classificationModel.enable_act:
+                        losses = self.focalLoss(classification, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes, special_alpha=self.special_alpha, decrease_positive=self.decrease_positive, decrease_new=True, enhance_error=self.enhance_error)
+                        
+                #use logits
+                else:
+                    classification_label = nn.Sigmoid()(classification)
+                    losses = self.focalLoss(classification_label, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes, special_alpha=self.special_alpha, decrease_positive=self.decrease_positive, decrease_new=True, enhance_error=self.enhance_error)
+                    
+                if self.enhance_error:
+                    class_loss, reg_loss, enhance_loss = losses
+                else:
+                    class_loss, reg_loss = losses
+                ################################
+                #          Ignore GD           #           
+                ################################   
+#                     class_loss, reg_loss, negative = self.focalLoss(nn.Sigmoid()(classification), regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes,special_alpha=self.special_alpha,decrease_positive=self.decrease_positive,decrease_new=True)
                 with torch.no_grad():
                     prev_features, prev_regression, prev_classification = self.prev_model(img_batch)
                 
-                
-                greater = torch.ge(prev_classification, 0.1) 
+                #start disill loss
                 smoothL1Loss = nn.SmoothL1Loss()
-
-                dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
-                
-                #dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification, classification[:,:,:self.prev_model.num_classes])
-                #dist_class_loss /= greater.sum()
-                
-
-                dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim = 2)], regression[greater.any(dim = 2)])
                 dist_feat_loss = torch.cat([smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
-#                 dist_feat_loss = dist_feat_loss.mean()
                 dist_feat_loss = dist_feat_loss.mean()
+                ################################
+                #          Use Logits          #           
+                ################################
                 
-    
-#                 dist_reg_loss = smoothL1Loss(prev_regression[torch.logical_and(negative, greater.any(dim = 2))], regression[torch.logical_and(negative, greater.any(dim = 2))])
+                greater = (classification_label[:,:,:self.prev_model.num_classes] > 0.05)
+                #greater = (prev_classification > 0.05)
                 
-#                 dist_feat_loss = torch.cat([smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
-#                 dist_feat_loss = dist_feat_loss.mean()
+                greater_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
+                bg_class_loss = nn.MSELoss(reduction='sum')(prev_classification[~greater], classification[:,:,:self.prev_model.num_classes][~greater])
+                bg_class_loss /= torch.numel(prev_classification)
+                #dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification, classification[:,:,:self.prev_model.num_classes])
+                dist_class_loss = greater_class_loss + bg_class_loss
+                dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
                 
-#                 negative = torch.flatten(negative)
-#                 dist_class_loss = nn.MSELoss(reduction="sum")(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification[:,:,:self.prev_model.num_classes].view(-1, self.prev_model.num_classes)[negative, :])
+#                 dist_class_loss = nn.MSELoss()(prev_classification, classification[:,:,:self.prev_model.num_classes])
+#                 dist_reg_loss = smoothL1Loss(prev_regression, regression)
 
-#                 dist_class_loss = dist_class_loss / prev_classification.shape[0]
-#                 ratio = 0.8
+                
+                ################################
+                #          Ignore GD           #           
+                ################################
+#                 negative = torch.flatten(negative)
+
+# #                 dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification[:,:,:self.prev_model.num_classes].view(-1, self.prev_model.num_classes)[negative, :])
+                
+#                 dist_class_loss = nn.MSELoss()(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification.view(-1, self.num_classes)[negative, :self.prev_model.num_classes])
+
+#                 #dist_class_loss /= len(prev_classification.shape[s])
+#                 dist_reg_loss = smoothL1Loss(prev_regression.view(-1,4)[negative,:], regression.view(-1,4)[negative,:])
+
+
+                ################################
+                #        Origin Baseline       #           
+                ################################
+#                 greater = torch.ge(prev_classification, 0.05)
+#                 if greater.sum() != 0:
+#                     dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
+#                     dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim = 2)], regression[greater.any(dim = 2)])
+#                 else:
+#                     dist_class_loss = torch.tensor(0).float().cuda()
+#                     dist_reg_loss = torch.tensor(0).float().cuda()
+                
+                
+                ################################
+                #         change ratio         #           
+                ################################
+#                 ratio = 1
 #                 class_loss *= ratio
 #                 reg_loss *= ratio
 #                 dist_class_loss *= ratio
 #                 dist_reg_loss *= ratio
 #                 dist_feat_loss *= ratio
 
-#                 ratio = 0.8
-#                 dist_reg_loss *= ratio
-#                 class_loss *= ratio
-#                 reg_loss *= ratio
-                return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss)
+                if self.enhance_error:
+                    return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss, enhance_loss)
+                else:
+                    return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss)
         else:
             transformed_anchors = self.regressBoxes(anchors, regression)
             transformed_anchors = self.clipBoxes(transformed_anchors, img_batch)
@@ -418,9 +478,48 @@ class ResNet(nn.Module):
                 finalAnchorBoxesIndexes = finalAnchorBoxesIndexes.cuda()
                 finalAnchorBoxesCoordinates = finalAnchorBoxesCoordinates.cuda()
 
+            ################################
+            #  Only use the highest score  #           
+            ################################            
+#             scores = torch.squeeze(classification[0, :, :])
+#             temp = torch.max(scores, dim=1)
+#             scores = temp[0]
+#             max_idxs = temp[1]
+            
+# #             print("scores:",scores.shape)
+
+#             scores_over_thresh = (scores > 0.05)
+            
+#             anchorBoxes = torch.squeeze(transformed_anchors)
+#             anchorBoxes = anchorBoxes[scores_over_thresh]
+            
+#             scores = scores[scores_over_thresh]
+# #             print("scores_over_thresh:",scores_over_thresh.shape)
+# #             print("anchorBoxes:",anchorBoxes.shape)
+# #             print("scores:",scores.shape)
+#             anchors_nms_idx = nms(anchorBoxes, scores, 0.5)
+            
+            
+#             finalResult[0].extend(scores[anchors_nms_idx])
+#             finalResult[1].extend(max_idxs[anchors_nms_idx])
+#             finalResult[2].extend(anchorBoxes[anchors_nms_idx])
+            
+#             finalScores = torch.cat((finalScores, scores[anchors_nms_idx]))
+#             finalAnchorBoxesIndexesValue = max_idxs[anchors_nms_idx]#torch.tensor([i] * anchors_nms_idx.shape[0])
+#             if torch.cuda.is_available():
+#                 finalAnchorBoxesIndexesValue = finalAnchorBoxesIndexesValue.cuda()
+#                 finalAnchorBoxesIndexes = torch.cat((finalAnchorBoxesIndexes, finalAnchorBoxesIndexesValue))
+#                 finalAnchorBoxesCoordinates = torch.cat((finalAnchorBoxesCoordinates, anchorBoxes[anchors_nms_idx]))
+            
+            ################################
+            #         Origin model         #           
+            ################################ 
             for i in range(classification.shape[2]):
                 scores = torch.squeeze(classification[:, :, i])
+                
                 scores_over_thresh = (scores > 0.05)
+#                 if i == classification.shape[2] - 1:
+#                     scores_over_thresh = (scores > 0.2)
                 if scores_over_thresh.sum() == 0:
                     # no boxes to NMS, just continue
                     continue
@@ -481,6 +580,9 @@ class ResNet(nn.Module):
             self.prev_model.distill_feature = True
             self.prev_model.distill_loss = False
             self.prev_model.eval()
+            
+#             for p in self.parameters():
+#                 p.requires_grad = False
             
             self.prev_num_classes = self.prev_model.num_classes #set previous class_num
             

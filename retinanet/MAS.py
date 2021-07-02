@@ -7,7 +7,7 @@ class MAS(object):
         self.model = model
         self.dataloader = dataloader
     def load_importance(self, path):
-        pickle_name = "MAS.pickle"
+        pickle_name = "MAS_logits.pickle"
         with open(os.path.join(path, pickle_name), "rb") as f:
             self.precision_matrices = pickle.load(f)
     def calculate_importance(self):
@@ -29,9 +29,9 @@ class MAS(object):
                 features, regression, classification = self.model(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0))
                                                           
                 classification = torch.norm(classification)
-#                 regression = torch.norm(regression)
-#                 regression *= float(classification / regression) 
-#                 output = classification + regression
+                regression = torch.norm(regression)
+                regression *= float(classification / regression) 
+                output = classification + regression
                 output = classification
                 output.backward()
                                           

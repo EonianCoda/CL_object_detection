@@ -373,15 +373,17 @@ class rehearsal_DataSet(Dataset):
             
             
         self.image_ids = img_ids
+        
         if len(self.image_ids) != 0:
             class_num = int(len(self.image_ids) / self.per_num)
-
+            
             for i in range(len(self.classOrder['id'])):
+                print(i)
                 if class_num == 0:
                     self.now_round = i + 1
                     break
                 class_num -= len(self.classOrder['id'][i])
-                
+            
             print('rehearsal now_round=',self.now_round)
         else:
             if now_round != None:

@@ -24,9 +24,9 @@ def calc_iou(a, b):
 class FocalLoss(nn.Module):
     #def __init__(self):
 
-    def forward(self, classifications, regressions, anchors, annotations, distill_loss = False, pre_class_num = 0, special_alpha = 1, enhance_error=False,decrease_positive=False,each_cat_loss=False):
+    def forward(self, classifications, regressions, anchors, annotations, distill_loss = False, pre_class_num = 0, special_alpha = 1, enhance_error=False,decrease_positive=False,each_cat_loss=False, decrease_new=False):
         
-        alpha = 0.2
+        alpha = 0.5
         gamma = 2.0
         batch_size = classifications.shape[0]
         classification_losses = []
@@ -39,9 +39,12 @@ class FocalLoss(nn.Module):
         anchor_ctr_x   = anchor[:, 0] + 0.5 * anchor_widths
         anchor_ctr_y   = anchor[:, 1] + 0.5 * anchor_heights
         
-        
+        if distill_loss and enhance_error and pre_class_num != 0:
+            enhance_loss = None
         if distill_loss:
             negative = torch.Tensor([]).long().cuda()
+#         else:
+#             alpha = 0.5
         for j in range(batch_size):
 
             classification = classifications[j, :, :] #shape = (Anchor_num, class_num)
@@ -88,9 +91,6 @@ class FocalLoss(nn.Module):
 
             IoU_max, IoU_argmax = torch.max(IoU, dim=1) # num_anchors x 1
             
-           
-            #import pdb
-            #pdb.set_trace()
 
             # compute the loss for classification
             targets = torch.ones(classification.shape) * -1
@@ -99,12 +99,23 @@ class FocalLoss(nn.Module):
                 targets = targets.cuda()
             
             positive_indices = torch.ge(IoU_max, 0.5)
+#             if not decrease_new:
+#                 positive_indices = torch.ge(IoU_max, 0.5)
+#             else:
+#                 positive_indices = torch.ge(IoU_max, 0.6)
+                
+                
             if not distill_loss:
                 targets[torch.lt(IoU_max, 0.4), :] = 0
             else:
-#                 targets[torch.lt(IoU_max, 0.4), :] = 0
                 targets[torch.lt(IoU_max, 0.4), pre_class_num:] = 0
-                #negative = torch.cat((negative, ~positive_indices.reshape(1,-1)))
+#                 targets[torch.lt(IoU_max, 0.4), :] = 0
+#                 if not decrease_new:
+#                     targets[torch.lt(IoU_max, 0.4), pre_class_num:] = 0
+#                 else:
+#                     targets[torch.lt(IoU_max, 0.5), pre_class_num:] = 0
+
+                #negative = torch.cat((negative, torch.lt(IoU_max, 0.4).reshape(1,-1)))
             
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
@@ -125,13 +136,10 @@ class FocalLoss(nn.Module):
                 print('special_alpha:',special_alpha)
                 alpha_factor = torch.where(torch.eq(targets, 1.), alpha_factor, (1. - alpha_factor)*special_alpha) #shape = (Anchor_num, class_num)
              
-            
-            
-            
             if not decrease_positive:
                 focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification) #shape = (Anchor_num, class_num)
             else:
-                focal_weight = torch.where(torch.eq(targets, 1.), 0.9 - torch.clip(classification, 0, 0.9), classification)
+                focal_weight = torch.where(torch.eq(targets, 1.), 0.7 - torch.clip(classification, 0, 0.7), classification)
                 
                 
             focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
@@ -141,16 +149,33 @@ class FocalLoss(nn.Module):
             
             # cls_loss = focal_weight * torch.pow(bce, gamma)
             cls_loss = focal_weight * bce
-            if not distill_loss and enhance_error and pre_class_num != 0:
-                print('enhace_error!')
-                cls_loss[:,pre_class_num:] *= 2
+            
+            ###################
+            #  enhance_error  #
+            ###################
+            if distill_loss and enhance_error and pre_class_num != 0:
+                temp = classification[torch.lt(IoU_max, 0.4), pre_class_num:]
+                if (temp > 0.05).sum() != 0:
+                    if enhance_loss == None:
+                        enhance_loss = torch.pow(temp[temp > 0.05], 2).sum()
+                    else:
+                        enhance_loss += torch.pow(temp[temp > 0.05], 2).sum()
+                    
+#             if not distill_loss and enhance_error and pre_class_num != 0:
+#                 torch.pow(classification[:,pre_class_num:], 2).sum()
+#                 print('enhace_error!')
+                
+                
+                #cls_loss[:,pre_class_num:] *= 2
                 
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
-                
+            
+            
+            
             if not each_cat_loss:
                 classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
             else:
@@ -224,7 +249,19 @@ class FocalLoss(nn.Module):
 #         else:
 #             del regression_losses
 #             return classification_losses
-        return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
+
+        
+        if enhance_error and pre_class_num != 0:
+            if not distill_loss: 
+                classifications = classifications[:,:,pre_class_num:]
+                enhance_loss = torch.pow(classifications[classifications > 0.05], 2).sum() / classifications.shape[0]
+            elif distill_loss:
+                if enhance_loss != None:
+                    enhance_loss /= classifications.shape[0]
+            print('enhace_error!')
+            return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True), enhance_loss 
+        else:        
+            return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
 #         if not distill_loss:
 #             return torch.stack(classification_losses).mean(dim=0, keepdim=True), torch.stack(regression_losses).mean(dim=0, keepdim=True)
 #         else:
