@@ -7,7 +7,7 @@ class MAS(object):
         self.model = model
         self.dataloader = dataloader
     def load_importance(self, path):
-        pickle_name = "MAS_logits.pickle"
+        pickle_name = "MAS.pickle"
         with open(os.path.join(path, pickle_name), "rb") as f:
             self.precision_matrices = pickle.load(f)
     def calculate_importance(self):

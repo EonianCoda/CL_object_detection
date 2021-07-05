@@ -139,6 +139,7 @@ class FocalLoss(nn.Module):
             if not decrease_positive:
                 focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification) #shape = (Anchor_num, class_num)
             else:
+                print('decrease_positive!')
                 focal_weight = torch.where(torch.eq(targets, 1.), 0.7 - torch.clip(classification, 0, 0.7), classification)
                 
                 
@@ -254,6 +255,7 @@ class FocalLoss(nn.Module):
         if enhance_error and pre_class_num != 0:
             if not distill_loss: 
                 classifications = classifications[:,:,pre_class_num:]
+                #enhance_loss = torch.abs(classifications[classifications > 0.05]).sum() #L1 loss
                 enhance_loss = torch.pow(classifications[classifications > 0.05], 2).sum() / classifications.shape[0]
             elif distill_loss:
                 if enhance_loss != None:

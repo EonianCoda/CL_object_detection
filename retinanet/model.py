@@ -411,16 +411,25 @@ class ResNet(nn.Module):
                 #          Use Logits          #           
                 ################################
                 
-                greater = (classification_label[:,:,:self.prev_model.num_classes] > 0.05)
-                #greater = (prev_classification > 0.05)
-                
-                greater_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
-                bg_class_loss = nn.MSELoss(reduction='sum')(prev_classification[~greater], classification[:,:,:self.prev_model.num_classes][~greater])
-                bg_class_loss /= torch.numel(prev_classification)
+                #greater = (classification_label[:,:,:self.prev_model.num_classes] > 0.05)
+                #greater = (nn.Sigmoid()(prev_classification) > 0.05)
+                old_label = nn.Sigmoid()(prev_classification)
+                greater = (old_label > 0.05)
+                #greater_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
+#                 bg_class_loss = nn.MSELoss(reduction='sum')(prev_classification[~greater], classification[:,:,:self.prev_model.num_classes][~greater])
+#                 bg_class_loss /= torch.numel(prev_classification)
                 #dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification, classification[:,:,:self.prev_model.num_classes])
-                dist_class_loss = greater_class_loss + bg_class_loss
+#                 dist_class_loss = greater_class_loss + bg_class_loss
+    
+                dist_class_loss = (torch.pow(prev_classification - classification[:,:,:self.prev_model.num_classes], 2) * old_label).sum() / (old_label > 0.5).sum()
+                #dist_class_loss /= greater.sum
+                #dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
                 dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
                 
+    
+                #dist_class_loss = smoothL1Loss(prev_classification, classification[:,:,:self.prev_model.num_classes])
+        
+        
 #                 dist_class_loss = nn.MSELoss()(prev_classification, classification[:,:,:self.prev_model.num_classes])
 #                 dist_reg_loss = smoothL1Loss(prev_regression, regression)
 

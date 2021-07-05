@@ -81,13 +81,15 @@ def evaluate_coco(dataset, model, root_path, method, now_round, epoch, threshold
         checkDir(path)
       
         json.dump(results, open(os.path.join(path , '{}_bbox_results_{}_for{}epoch.json'.format(dataset.set_name, now_round, epoch)), 'w') ,indent=4)
-
+        print("Pred Foreground num:",len(results))
         # load results in COCO evaluation tool
         coco_true = dataset.coco
         coco_pred = coco_true.loadRes(os.path.join(path, '{}_bbox_results_{}_for{}epoch.json'.format(dataset.set_name, now_round, epoch)))
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
         coco_eval.params.imgIds = image_ids
+        
+        
         
         precision_result = defaultdict()
         recall_result = defaultdict()

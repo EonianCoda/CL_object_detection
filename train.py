@@ -31,13 +31,13 @@ w_distillation = True
 data_split = ""
 
 # rehearsal
-rehearsal_method = "random"
+rehearsal_method = None
 rehearsal_per_num = 2
 
 mas_penalty = False
 
 # enhance new taks on old picture's loss
-enhance_error = True
+enhance_error = False
 
 # when calculate new task'focal loss，the ground truth label 1 -> 0.9
 decrease_positive = False
