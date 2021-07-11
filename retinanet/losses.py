@@ -266,11 +266,12 @@ class IL_Loss():
                                                                                 return_feat=True, 
                                                                                 return_anchor=True, 
                                                                                 enable_act=False)
-            # Compute focal loss   
-            if distill_logits:
-                losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
-            else:
-                losses = self.focal_loss(classification, regression, anchors, annotations,cur_state,self.params)
+            # Compute focal loss
+            losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
+            # if distill_logits:
+                
+            # else:
+            #     losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
 
             # Whether ignore ground truth           
             if self.params['ignore_ground_truth']:
