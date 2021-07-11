@@ -1,41 +1,28 @@
-# 訓練檔案目錄說明
+## 訓練資料目錄說明
 
-root
-  code
-  model
-    \[scenario\]/\[task\]
-  dataset
-    \[dataset_name\]
-      annotations
-      images
+root <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -code <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -model <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --\[scenario\] <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state0 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state1 <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -dataset <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --\[dataset_name\] <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---annotations <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---images <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -val_result <br>
 
-Ex:
-root
-  code
-  model
-    20
-      task1
-    15+1
-      task1
-      task2
-    19+1
-      task1
-      task2
-  dataset
-    voc2007
-      annotations
-      images
-    voc2012
-      annotations
-      images
-      
-# 方法敘述
-1. w_o_disillation: without distillation loss
-2. w_distillaion: with  distillation loss
-
-# Task
-
-Task從1~n
-
-# 參數
---sample: 為每個類別sample的圖片數量, 0表示不sample
+### 範例
+root <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -code <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -model <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --20 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state0 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --15_1 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state0 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state1 <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -dataset <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --voc2007 <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---annotations <br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---images <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -val_result <br>
