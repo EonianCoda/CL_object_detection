@@ -1,12 +1,16 @@
-import torch.nn as nn
-import torch
 import math
+
+import torch
+import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 from torchvision.ops import nms
+
+
+from retinanet import losses
 from retinanet.utils import BasicBlock, Bottleneck, BBoxTransform, ClipBoxes
 from retinanet.anchors import Anchors
-from retinanet import losses
-import copy
+
+from preprocessing.debug import debug_print
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
@@ -126,8 +130,12 @@ class ClassificationModel(nn.Module):
 
         self.output = nn.Conv2d(feature_size, num_anchors * num_classes, kernel_size=3, padding=1) #num_anchors(A) * num_classes(K)
         self.output_act = nn.Sigmoid()
-        self.enable_act = True
-    def forward(self, x):
+        
+    def forward(self, x, enable_act=True):
+        """
+            Args:
+                enable_act: whether let output layer pass activation layer, default = "true"
+        """
         out = self.conv1(x)
         out = self.act1(out)
 
@@ -141,7 +149,7 @@ class ClassificationModel(nn.Module):
         out = self.act4(out)
 
         out = self.output(out)
-        if self.enable_act:
+        if enable_act:
             out = self.output_act(out)
 
         # out is B x C x W x H, with C = n_classes + n_anchors
@@ -153,55 +161,38 @@ class ClassificationModel(nn.Module):
 
         return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
-    def increase_class(self, num_newClasses):
+    def next_state(self, num_new_classes):
+        """increase the number of neurons in output layer
+
+            Args:
+                num_new_classes: the number of new classes which will be added
+        """
         old_classes = self.num_classes
-        old_filter_num = old_classes * self.num_anchors
+        #old_filter_num = old_classes * self.num_anchors
         
-        self.num_classes += num_newClasses
+        self.num_classes += num_new_classes
         old_output = self.output
         self.output = nn.Conv2d(self.feature_size, self.num_anchors * self.num_classes, kernel_size=3, padding=1)
 
-        prior = 0.01 #same as variable prior at ResNet __init__()
+        # init output layer, this process is same as ResNet __init__()
+        prior = 0.01 
         self.output.weight.data.fill_(0)
         self.output.bias.data.fill_(-math.log((1.0 - prior) / prior))
         
-            
+        # copy old weight and bias    
         for i in range(self.num_anchors):
             self.output.weight.data[i * self.num_classes:i * self.num_classes + old_classes,:,:,:] = old_output.weight.data[i * old_classes:(i+1) * old_classes,:,:,:] 
             self.output.bias.data[i * self.num_classes:i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes:(i+1) * old_classes]
             
         self.output.cuda()
         del old_output
-    def special_increase(self, data_loader):
-        print("special_increase")
-        self.num_classes = 20
-        old_output = self.output
-        self.output = nn.Conv2d(self.feature_size, self.num_anchors * self.num_classes, kernel_size=3, padding=1)
 
-        
-        transform = []
-        for i in range(20):
-            real_ID = data_loader.coco_labels[i]
-            for j in range(4):
-                if real_ID in data_loader.supercategory[j]:
-                    transform.append(j)
-                    break
-                    
-        for i in range(9):
-            for j in range(20):
-                part_idx = transform[j]  
-                self.output.weight.data[i*20 + j,:,:,:] = old_output.weight.data[i*4 + part_idx,:,:,:]
-                self.output.bias.data[i*20 + j] = old_output.bias.data[i*4 + part_idx]
-    
-        self.output.cuda()
-        del old_output
 class ResNet(nn.Module):
 
-    def __init__(self, num_classes, block, layers, prev_model=None,distill_feature=False, distill_loss=False):
+    def __init__(self, num_classes, block, layers):
  
         self.num_classes = num_classes
-        self.prev_num_classes = -1
-        
+  
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -233,8 +224,9 @@ class ResNet(nn.Module):
 
         self.clipBoxes = ClipBoxes()
 
-        self.focalLoss = losses.FocalLoss()
+        # self.focalLoss = losses.FocalLoss()
 
+        # init weight and bias
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -253,13 +245,17 @@ class ResNet(nn.Module):
 
         self.freeze_bn()
         
-        self.distill_feature = distill_feature
-        self.distill_loss = distill_loss
-        self.init_prev_model(prev_model)
-        self.special_alpha = 1.0
-        self.enhance_error = False
-        self.decrease_positive = False
-        self.each_cat_loss = False
+        # # setting for continual learning
+        # self.init_prev_model(prev_model)
+        
+        # self.prev_num_classes = -1 #prev model
+        # # self.distill_feature = False distill_feature
+        # # self.distill_loss = distill_loss
+        # # self.special_alpha = 1.0
+        # # self.enhance_error = False
+        # # self.decrease_positive = False
+        # # self.each_cat_loss = False
+
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
@@ -281,58 +277,47 @@ class ResNet(nn.Module):
         for layer in self.modules():
             if isinstance(layer, nn.BatchNorm2d):
                 layer.eval()
-    def freeze_resnet_n_fpn(self, status = False):
-        if status == False:
-            print('freeze resnet and fpn')
-        else:
-            print('unfreeze resnet and fpn')
-        for name, parameter in self.named_parameters():
-            if "prev_model" not in name and "regressionModel" not in name and "classificationModel" not in name:
-                parameter.requires_grad = status
-    def freeze_resnet(self, status = False):
-        if status == False:
-            print('freeze resnet')
-        else:
-            print('unfreeze resnet')
-        for name, parameter in self.named_parameters():
-            if "prev_model" not in name and "regressionModel" not in name and "classificationModel" not in name and "fpn" not in name:
-                parameter.requires_grad = status
-    def freeze_regression(self, status = False):
-        if status == False:
-            print('freeze regression')
-        else:
-            print('unfreeze regression')
-        for name, parameter in self.named_parameters():
-            if "prev_model" not in name and "classificationModel" not in name and "fpn" not in name:
-                parameter.requires_grad = status
     
-    def freeze_except_new_classification(self, status= False):
-        """set all layers except classificationModel.output requires_grad = statsu
+    def freeze_layers(self, white_list:list):
+        """freeze some layers 
+            Args:
+                white_list: list, indicate which layers don't be freezed
         """
-        if status == False:
-            print('freeze all layer except newclassification')
-            
-        else:
-            print('unfreeze all layers')
-        for name, parameter in self.named_parameters():
-#             if "prev_model" not in name and "classificationModel.output" not in name and "regressionModel.output" not in name:
-#                 parameter.requires_grad = status
-            
-            if "prev_model" not in name and "classificationModel.output" not in name:
-                parameter.requires_grad = status
-                
-    def set_special_alpha(self,alpha):
-        self.special_alpha = alpha
-    
-    
-    
-    def forward(self, inputs):
+        if white_list == None:
+            return
 
-        if self.training and (not self.distill_feature):  
-            img_batch, annotations = inputs
-        else:
-            img_batch = inputs
+        self.unfreeze_layers()
+        debug_print("Freeze some layers, except", " and ".join(white_list))
+        def keyword_check(name, white_list):
+            for word in white_list:
+                if word in name:
+                    return False
+            return True
+        
+        for name, p in self.named_parameters():
+            if keyword_check(name, white_list):
+                p.requires_grad = False
+        self.freeze_bn()
 
+    def unfreeze_layers(self):
+        """unfreeze all layers, except batch normalization layer
+        """
+        debug_print("Unfreeze all layers!")
+        for p in self.parameters():
+            p.requires_grad = True
+        self.freeze_bn()
+  
+    def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
+        """ model forward transfer
+            Args:
+                img_batch: tensor, shape = (batch_size, channel, height, width)
+                return_feat: bool, whether return feature, default = False
+                return_anchor: bool, whether return anchors, default = False
+                enable_act: bool, whether enable classification subnet output layer activate, default = True
+
+            Return: 
+                tuple, value=(classification, regression, feature, anchors)
+        """
         x = self.conv1(img_batch)
         x = self.bn1(x)
         x = self.relu(x)
@@ -344,199 +329,65 @@ class ResNet(nn.Module):
         x4 = self.layer4(x3)
 
         features = self.fpn([x2, x3, x4])
+        regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)  #shape = (batch_size, W*H*A(Anchor_num), 4)
+        classification = torch.cat([self.classificationModel(feature, enable_act) for feature in features], dim=1) #shape = (batch_size, W*H*A(Anchor_num), class_num)
+
+
+        result = [classification, regression]
+        if return_feat:
+            result.append(features)
+        if return_anchor:
+            result.append(self.anchors(img_batch))
         
-        regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)
+        return tuple(result)
 
-        ################################
-        #          Use Logits          #           
-        ################################
-        self.classificationModel.enable_act = (not self.distill_loss)
-        if self.distill_feature:
-            self.classificationModel.enable_act = False
+    def cal_simple_focal_loss(self, img_batch, annotations, params):
+        classification, regrsssion, anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=True)
+        cls_loss, reg_loss = losses.FocalLoss().forward(classification, regrsssion, anchors, annotations, cur_state=0, params=params)
+        return cls_loss, reg_loss
 
-        classification = torch.cat([self.classificationModel(feature) for feature in features], dim=1) #shape = (batch_size, W*H*A(Anchor_num), class_num)
-        
-        anchors = self.anchors(img_batch)
+    def predict(self, img_batch, thresh=None, method=None):
+        """ model prediction
 
-            
-        if self.distill_feature:
-            return (features, regression, classification)
-        elif self.training:
-            
-            #no distill loss
-            if not self.distill_loss:
-                if self.prev_model:
-                    if not self.enhance_error:
-                        class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
-                    else:
-                        class_loss, reg_loss, enhance_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, pre_class_num=self.prev_model.num_classes, each_cat_loss = self.each_cat_loss)
-                else:
-                    class_loss, reg_loss = self.focalLoss(classification, regression, anchors, annotations, special_alpha=self.special_alpha, enhance_error=self.enhance_error, each_cat_loss = self.each_cat_loss)
-                    
-                if not self.enhance_error:
-                    return (class_loss, reg_loss)
-                else:
-                    return (class_loss, reg_loss, enhance_loss)
-            #use distill loss
-            else: 
-                assert self.prev_model != None
-                self.prev_model.eval()
-                self.prev_model.training = False
-                
-                #use label
-                if self.classificationModel.enable_act:
-                        losses = self.focalLoss(classification, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes, special_alpha=self.special_alpha, decrease_positive=self.decrease_positive, decrease_new=True, enhance_error=self.enhance_error)
-                        
-                #use logits
-                else:
-                    classification_label = nn.Sigmoid()(classification)
-                    losses = self.focalLoss(classification_label, regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes, special_alpha=self.special_alpha, decrease_positive=self.decrease_positive, decrease_new=True, enhance_error=self.enhance_error)
-                    
-                if self.enhance_error:
-                    class_loss, reg_loss, enhance_loss = losses
-                else:
-                    class_loss, reg_loss = losses
-                ################################
-                #          Ignore GD           #           
-                ################################   
-#                     class_loss, reg_loss, negative = self.focalLoss(nn.Sigmoid()(classification), regression, anchors, annotations, self.distill_loss, self.prev_model.num_classes,special_alpha=self.special_alpha,decrease_positive=self.decrease_positive,decrease_new=True)
-                with torch.no_grad():
-                    prev_features, prev_regression, prev_classification = self.prev_model(img_batch)
-                
-                #start disill loss
-                smoothL1Loss = nn.SmoothL1Loss()
-                dist_feat_loss = torch.cat([smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
-                dist_feat_loss = dist_feat_loss.mean()
-                ################################
-                #          Use Logits          #           
-                ################################
-                
-                #greater = (classification_label[:,:,:self.prev_model.num_classes] > 0.05)
-                #greater = (nn.Sigmoid()(prev_classification) > 0.05)
-                old_label = nn.Sigmoid()(prev_classification)
-                greater = (old_label > 0.05)
-                #greater_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
-#                 bg_class_loss = nn.MSELoss(reduction='sum')(prev_classification[~greater], classification[:,:,:self.prev_model.num_classes][~greater])
-#                 bg_class_loss /= torch.numel(prev_classification)
-                #dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification, classification[:,:,:self.prev_model.num_classes])
-#                 dist_class_loss = greater_class_loss + bg_class_loss
-    
-                dist_class_loss = (torch.pow(prev_classification - classification[:,:,:self.prev_model.num_classes], 2) * old_label).sum() / (old_label > 0.5).sum()
-                #dist_class_loss /= greater.sum
-                #dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
-                dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
-                
-    
-                #dist_class_loss = smoothL1Loss(prev_classification, classification[:,:,:self.prev_model.num_classes])
-        
-        
-#                 dist_class_loss = nn.MSELoss()(prev_classification, classification[:,:,:self.prev_model.num_classes])
-#                 dist_reg_loss = smoothL1Loss(prev_regression, regression)
+            Args:
+                img_batch: tensor, shape = (batch_size, channel, height, width)
+                thresh: list, indicate each category's thresh
+        """
+        classification, regression , anchors = self.forward(img_batch, return_feat=False, return_anchor=True)
+        transformed_anchors = self.regressBoxes(anchors, regression)
+        transformed_anchors = self.clipBoxes(transformed_anchors, img_batch)
+        finalResult = [[], [], []]
 
-                
-                ################################
-                #          Ignore GD           #           
-                ################################
-#                 negative = torch.flatten(negative)
+        finalScores = torch.Tensor([])
+        finalAnchorBoxesIndexes = torch.Tensor([]).long()
+        finalAnchorBoxesCoordinates = torch.Tensor([])
 
-# #                 dist_class_loss = nn.MSELoss(reduction='sum')(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification[:,:,:self.prev_model.num_classes].view(-1, self.prev_model.num_classes)[negative, :])
-                
-#                 dist_class_loss = nn.MSELoss()(prev_classification.view(-1, self.prev_model.num_classes)[negative,:], classification.view(-1, self.num_classes)[negative, :self.prev_model.num_classes])
+        if torch.cuda.is_available():
+            finalScores = finalScores.cuda()
+            finalAnchorBoxesIndexes = finalAnchorBoxesIndexes.cuda()
+            finalAnchorBoxesCoordinates = finalAnchorBoxesCoordinates.cuda()
 
-#                 #dist_class_loss /= len(prev_classification.shape[s])
-#                 dist_reg_loss = smoothL1Loss(prev_regression.view(-1,4)[negative,:], regression.view(-1,4)[negative,:])
+        # if thresh == None, then use default thresh
+        if thresh == None:
+            thresh = [0.05 for _ in range(classification.shape[2])]
 
+        if len(thresh) != classification.shape[2]:
+            raise ValueError("Parameter Thresh  must contain {} elements!".format(classification.shape[2]))
 
-                ################################
-                #        Origin Baseline       #           
-                ################################
-#                 greater = torch.ge(prev_classification, 0.05)
-#                 if greater.sum() != 0:
-#                     dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[:,:,:self.prev_model.num_classes][greater])
-#                     dist_reg_loss = smoothL1Loss(prev_regression[greater.any(dim = 2)], regression[greater.any(dim = 2)])
-#                 else:
-#                     dist_class_loss = torch.tensor(0).float().cuda()
-#                     dist_reg_loss = torch.tensor(0).float().cuda()
-                
-                
-                ################################
-                #         change ratio         #           
-                ################################
-#                 ratio = 1
-#                 class_loss *= ratio
-#                 reg_loss *= ratio
-#                 dist_class_loss *= ratio
-#                 dist_reg_loss *= ratio
-#                 dist_feat_loss *= ratio
-
-                if self.enhance_error:
-                    return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss, enhance_loss)
-                else:
-                    return (class_loss, reg_loss, dist_class_loss, dist_reg_loss, dist_feat_loss)
-        else:
-            transformed_anchors = self.regressBoxes(anchors, regression)
-            transformed_anchors = self.clipBoxes(transformed_anchors, img_batch)
-            finalResult = [[], [], []]
-
-            finalScores = torch.Tensor([])
-            finalAnchorBoxesIndexes = torch.Tensor([]).long()
-            finalAnchorBoxesCoordinates = torch.Tensor([])
-
-            if torch.cuda.is_available():
-                finalScores = finalScores.cuda()
-                finalAnchorBoxesIndexes = finalAnchorBoxesIndexes.cuda()
-                finalAnchorBoxesCoordinates = finalAnchorBoxesCoordinates.cuda()
-
-            ################################
-            #  Only use the highest score  #           
-            ################################            
-#             scores = torch.squeeze(classification[0, :, :])
-#             temp = torch.max(scores, dim=1)
-#             scores = temp[0]
-#             max_idxs = temp[1]
-            
-# #             print("scores:",scores.shape)
-
-#             scores_over_thresh = (scores > 0.05)
-            
-#             anchorBoxes = torch.squeeze(transformed_anchors)
-#             anchorBoxes = anchorBoxes[scores_over_thresh]
-            
-#             scores = scores[scores_over_thresh]
-# #             print("scores_over_thresh:",scores_over_thresh.shape)
-# #             print("anchorBoxes:",anchorBoxes.shape)
-# #             print("scores:",scores.shape)
-#             anchors_nms_idx = nms(anchorBoxes, scores, 0.5)
-            
-            
-#             finalResult[0].extend(scores[anchors_nms_idx])
-#             finalResult[1].extend(max_idxs[anchors_nms_idx])
-#             finalResult[2].extend(anchorBoxes[anchors_nms_idx])
-            
-#             finalScores = torch.cat((finalScores, scores[anchors_nms_idx]))
-#             finalAnchorBoxesIndexesValue = max_idxs[anchors_nms_idx]#torch.tensor([i] * anchors_nms_idx.shape[0])
-#             if torch.cuda.is_available():
-#                 finalAnchorBoxesIndexesValue = finalAnchorBoxesIndexesValue.cuda()
-#                 finalAnchorBoxesIndexes = torch.cat((finalAnchorBoxesIndexes, finalAnchorBoxesIndexesValue))
-#                 finalAnchorBoxesCoordinates = torch.cat((finalAnchorBoxesCoordinates, anchorBoxes[anchors_nms_idx]))
-            
-            ################################
-            #         Origin model         #           
-            ################################ 
+        # Default predict method
+        if method == None:
             for i in range(classification.shape[2]):
                 scores = torch.squeeze(classification[:, :, i])
                 
-                scores_over_thresh = (scores > 0.05)
-#                 if i == classification.shape[2] - 1:
-#                     scores_over_thresh = (scores > 0.2)
+                scores_over_thresh = (scores > thresh[i]) # default thresh = 0.05
+
+                # no boxes to NMS, just continue
                 if scores_over_thresh.sum() == 0:
-                    # no boxes to NMS, just continue
                     continue
                     
                 scores = scores[scores_over_thresh]
                 anchorBoxes = torch.squeeze(transformed_anchors)
                 anchorBoxes = anchorBoxes[scores_over_thresh]
-                
                 
                 anchors_nms_idx = nms(anchorBoxes, scores, 0.5)
                 
@@ -548,112 +399,66 @@ class ResNet(nn.Module):
                 finalAnchorBoxesIndexesValue = torch.tensor([i] * anchors_nms_idx.shape[0])
                 if torch.cuda.is_available():
                     finalAnchorBoxesIndexesValue = finalAnchorBoxesIndexesValue.cuda()
-    
                 finalAnchorBoxesIndexes = torch.cat((finalAnchorBoxesIndexes, finalAnchorBoxesIndexesValue))
-                #print("finalAnchorBoxesIndexes",finalAnchorBoxesIndexes)
                 finalAnchorBoxesCoordinates = torch.cat((finalAnchorBoxesCoordinates, anchorBoxes[anchors_nms_idx]))
+        
+        # Experimental method
+        elif method == "large_score":
+            scores = torch.squeeze(classification[0, :, :])
+            temp = torch.max(scores, dim=1)
+            scores = temp[0]
+            max_idxs = temp[1]
+            
+            scores_over_thresh = (scores > 0.05)
 
-            return [finalScores, finalAnchorBoxesIndexes, finalAnchorBoxesCoordinates]
+            scores = scores[scores_over_thresh]
+            anchorBoxes = torch.squeeze(transformed_anchors)
+            anchorBoxes = anchorBoxes[scores_over_thresh]
+
+            anchors_nms_idx = nms(anchorBoxes, scores, 0.5)
+            
+            
+            finalResult[0].extend(scores[anchors_nms_idx])
+            finalResult[1].extend(max_idxs[anchors_nms_idx])
+            finalResult[2].extend(anchorBoxes[anchors_nms_idx])
+            
+            finalScores = torch.cat((finalScores, scores[anchors_nms_idx]))
+            finalAnchorBoxesIndexesValue = max_idxs[anchors_nms_idx]
+            if torch.cuda.is_available():
+                finalAnchorBoxesIndexesValue = finalAnchorBoxesIndexesValue.cuda()
+            finalAnchorBoxesIndexes = torch.cat((finalAnchorBoxesIndexes, finalAnchorBoxesIndexesValue))
+            finalAnchorBoxesCoordinates = torch.cat((finalAnchorBoxesCoordinates, anchorBoxes[anchors_nms_idx]))
+
+        return [finalScores, finalAnchorBoxesIndexes, finalAnchorBoxesCoordinates]
     
-    def increase_class(self, num_newClasses, w_distillation=False):
-        """add new task
+
+    def next_state(self, num_new_classes:int):
+        """next state
         Args:
-            num_newClasses: the number of new classes number
+            num_new_classes: the number of new classes number
         """
-        if w_distillation:
-            print('Store previous model!')
-            if self.prev_model != None:
-                del self.prev_model
-           
-            prev_model = copy.deepcopy(self)
-            prev_model.cuda()
-            self.init_prev_model(prev_model)
-        self.prev_num_classes = self.num_classes
-        self.num_classes += num_newClasses
-        self.classificationModel.increase_class(num_newClasses)
-    
-    def special_increase(self,data_loader):
-        self.prev_num_classes = self.num_classes
-        self.num_classes = 20
-        self.classificationModel.special_increase(data_loader)
-        
-        
-    def init_prev_model(self, prev_model):
-        """init and set prev_model, then set self's distill_loss = True
-        """
-        
-        self.prev_model = prev_model
-        if self.prev_model != None:
-            self.prev_model.cuda()
-            self.prev_model.training = False
-            self.prev_model.distill_feature = True
-            self.prev_model.distill_loss = False
-            self.prev_model.eval()
-            
-#             for p in self.parameters():
-#                 p.requires_grad = False
-            
-            self.prev_num_classes = self.prev_model.num_classes #set previous class_num
-            
-            self.distill_feature = False
-            self.distill_loss = True
-        else:
-            self.distill_feature = False
-            self.distill_loss = False
-        
+        debug_print("Add new neurons in classification Moddel output layers!")
+        self.num_classes += num_new_classes
+        self.classificationModel.next_state(num_new_classes)
+       
 
-
-
-def resnet18(num_classes, pretrained=False, **kwargs):
-    """Constructs a ResNet-18 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
+def create_retinanet(depth, num_classes, pretrained=True, **kwargs):
+    """Construct retinanet
+        Args:
+            depth: resnet's model depth
+            num_classes: classification output layers's class num
+            pretrained: whether resnet is pretrained, default = True
     """
-    model = ResNet(num_classes, BasicBlock, [2, 2, 2, 2], **kwargs)
+    arch = {18:[2, 2, 2, 2],
+            34:[3, 4, 6, 3],
+            50:[3, 4, 6, 3],
+            101:[3, 4, 23, 3],
+            152:[3, 8, 36, 3]}
+    if depth not in arch.keys():
+        raise ValueError('Unsupported model depth, must be one of 18, 34, 50, 101, 152')
+
+    model = ResNet(num_classes, BasicBlock, arch[depth], **kwargs)
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18'], model_dir='.'), strict=False)
     return model
-
-
-def resnet34(num_classes, pretrained=False, **kwargs):
-    """Constructs a ResNet-34 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(num_classes, BasicBlock, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet34'], model_dir='.'), strict=False)
-    return model
-
-
-def resnet50(num_classes, pretrained=False, **kwargs):
-    """Constructs a ResNet-50 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(num_classes, Bottleneck, [3, 4, 6, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet50'], model_dir='.'), strict=False)
-    return model
-
-
-def resnet101(num_classes, pretrained=False, **kwargs):
-    """Constructs a ResNet-101 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(num_classes, Bottleneck, [3, 4, 23, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet101'], model_dir='.'), strict=False)
-    return model
-
-
-def resnet152(num_classes, pretrained=False, **kwargs):
-    """Constructs a ResNet-152 model.
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    model = ResNet(num_classes, Bottleneck, [3, 8, 36, 3], **kwargs)
-    if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet152'], model_dir='.'), strict=False)
-    return model
+    

@@ -1,248 +1,92 @@
+
 from __future__ import print_function, division
-import sys
 import os
+
 import torch
 import numpy as np
 import random
-import csv
 
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms, utils
+from torch.utils.data import Dataset
 from torch.utils.data.sampler import Sampler
-
-from pycocotools.coco import COCO
 
 import skimage.io
 import skimage.transform
 import skimage.color
 import skimage
 import pickle
-#import cocoAPI
-from collections import defaultdict
+
 from PIL import Image
-import random
 
-class cocoAPI():
-    def __init__(self, coco_path):
-        self.coco = COCO(coco_path)
-
-        self.classes = defaultdict()
-        self.reverse_classes = defaultdict()
-        for category in self.coco.loadCats(self.coco.getCatIds()):
-            self.classes[category['id']] = category['name']
-            self.reverse_classes[category['name']] = category['id']
-
-    def getImgCats(self, imgIds, return_name=False):
-
-        #get annotations
-        annotations = self.coco.loadAnns(self.coco.getAnnIds(imgIds=imgIds))
-        #get categoryId appear in annotations
-        catIds = [ann['category_id'] for ann in annotations]
-        catIds = list(set(catIds))
-
-        if not return_name:
-            return catIds
-        else:
-            catNames = []
-            #get category name from categord Id
-            for catId in catIds:
-                catNames.append(self.classes[catId])
-            return catNames
-
-    def getImgIdFromCats(self, catIds):
-        if type(catIds) == list:
-            imgIds = set()
-            for catId in catIds:
-                imgIds.update(self.coco.getImgIds(catIds=catId))
-            return list(imgIds)
-        else:
-            return self.coco.getImgIds(catIds=catIds)
-
-    def catIdToName(self, catIds):
-        if type(catIds) == int:
-            return [self.classes[catIds]]
-
-        else:
-            names = [self.classes[catId] for catId in catIds]
-            return names
-                
-    def catNameToId(self, names):
-        if type(names) == str:
-            return [self.reverse_classes[names]]
-
-        names = list(set(names))
-
-        ids = []
-        for name in names:
-            ids.append(self.reverse_classes[name])
-        ids.sort()
-
-        return ids
-    
-    def getCatNumfromCatId(self, catIds):
-        result = {'image':[], 'object':[]}
-        index = []
-        catIds.sort()
-        
-        for catId in catIds:
-            index.append(self.classes[catId])
-            result['image'].append(len(self.coco.getImgIds(catIds = catId)))
-            result['object'].append(len(self.coco.getAnnIds(catIds = catId)))
-
-        index.append('Counts')
-        result['image'].append(sum(result['image']))
-        result['object'].append(sum(result['object']))
-        result = pd.DataFrame(result, index=index)
-        result.sort_values(by=['image'], ascending=False)
-        return result
-
-    def getCatNumfromImgId(self, imgIds):
-        #get annotations
-        annotations = self.coco.loadAnns(self.coco.getAnnIds(imgIds=imgIds))
-        #get categoryId appear in annotations
-        catIds = [ann['category_id'] for ann in annotations]
-
-        result = {'image':[], 'object':[]}
-
-        index = self.catIdToName(list(set(catIds)))
-        #object counts
-        result['object'] = np.unique(catIds, return_counts=True)[1].tolist()
-
-        catIds = list(set(catIds))
-        for catId in catIds:
-            result['image'].append(len(set(self.coco.getImgIds(catIds = catId)) & set(imgIds)))
-        
-        print('Counts meaning for  image is your input imgIds number')
-        index.append('Counts')
-        result['image'].append(len(imgIds))
-        result['object'].append(sum(result['object']))
-        result = pd.DataFrame(result, index=index)
-        result.sort_values(by=['image'], ascending=False)
-        return result
+from preprocessing.debug import debug_print
+from preprocessing.params import Params
 
 
-class CocoDataset_inOrder(Dataset):
-    """Coco dataset."""
+class IL_dataset(Dataset):
+    """incremental learning dataset."""
 
-    def __init__(self, root_dir, set_name='TrainVoc2012', dataset = 'voc', transform=None, start_round = 1, data_split="10+10", rehearsal= 'none',test_flag=True, custom_ids=[]):
+    def __init__(self, params:Params,transform=None, start_state=0, use_data_ratio = 1):
         """
         Args:
-            root_dir (string): COCO directory.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
+            train_params: train_params, which manage the training params
+            states: IL_states, which manage the incremental learning states
+            transform: (callable, optional): Optional transform to be applied on a sample.
+            start_state: interger, the start state index
+            use_data_ratio: use data ratio, default = 1, which means using all data
         """
+    
+        self.data_split = params['data_split'] # must be 'train', 'val', 'trainval' or 'test' 
+        self.image_path = os.path.join(params['data_path'], 'images')
 
-        self.root_dir = root_dir
-        self.set_name = set_name
         self.transform = transform
-        self.dataset = dataset
-        self.prev_imgIds = []
+        self.cur_state = start_state
+        self.use_data_ratio = use_data_ratio
 
-        #read annotation and some related data
-        self.coco      = COCO(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json'))
-        
-        self.cocoHelper = cocoAPI(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json')) #my custom cocoAPI
+        self.states = params.states
+        # read annotation and some related data
+        self.coco = params.states.coco
 
-        self.classOrder = {'id':[],'name':[]}
-        cat_names_sorted = sorted(self.cocoHelper.classes.values())
-        if data_split == "20":
-            self.classOrder['name'] = [cat_names_sorted]
-        elif data_split == "10+10":
-            self.classOrder['name'] = [cat_names_sorted[:10], cat_names_sorted[10:]]
-        elif data_split == "19+1":
-            self.classOrder['name'] = [cat_names_sorted[:19], [cat_names_sorted[19:]]]
-        elif data_split == "15+1":
-            self.classOrder['name'] = [cat_names_sorted[:15], [cat_names_sorted[18]], [cat_names_sorted[16]], 
-                                       [cat_names_sorted[17]], [cat_names_sorted[15]], [cat_names_sorted[19]]]
-        elif data_split == "custom":
-            """
-            ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 
-            'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor']
-            """
-            custom = [['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow','diningtable', 'dog', 'horse', 'motorbike', 'person','train'],[ 'pottedplant', 'sheep', 'sofa','tvmonitor']]
-#             custom = [['pottedplant','diningtable','boat','cow','cat'], 
-#                         ['dog', 'horse', 'motorbike', 'person', 'sofa', 'train', 'tvmonitor']]
-            self.classOrder['name'] = custom
 
-        self.classOrder['id'] = [self.cocoHelper.catNameToId(names) for names in self.classOrder['name']]
-
-        print(self.classOrder)
-        self.now_round = start_round
-
-        if test_flag:
-            if ("Val" in set_name) or ("Test" in set_name):
-                self.seen_class_id = []
-                for i in range(self.now_round):
-                    self.seen_class_id.extend(self.classOrder['id'][i])
-            else:
-                self.seen_class_id = self.classOrder['id'][self.now_round - 1]
+        # set annotation seen class
+        if "test" == self.data_split:
+            self.seen_class_id = []
+            self.seen_class_id.extend(self.states[self.cur_state]['knowing_class']['id'])
         else:
-            if len(custom_ids) == 0:
-                self.seen_class_id = self.classOrder['id'][self.now_round - 1]
-            else:
-                self.seen_class_id = custom_ids
-
-        self.load_classes()
-        #get this round's data
-        self.update_imgIds()
-        
-        if dataset == 'coco':
-            self.image_path = os.path.join(self.root_dir, 'images', self.set_name)
-        elif dataset == 'voc':
-            self.image_path = os.path.join(self.root_dir, 'images')
+            self.seen_class_id = self.states[self.cur_state]['new_class']['id']
+       
+        self.init_classes()
+        self.update_imgIds()  #get this state's data
         
 
     def update_imgIds(self):
-        self.image_ids = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
-#         if ("Val" in self.set_name) or ("Test" in self.set_name):
-#             self.image_ids = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
-#         else:
-#             imgIds = self.cocoHelper.getImgIdFromCats(self.seen_class_id)
-#             self.image_ids = imgIds[:len(imgIds)// 4]
-        
-        
-            
+        imgIds = self.coco.get_imgs_by_cats(self.seen_class_id)
+        if 'test' != self.data_split:
+            imgIds = imgIds[:len(imgIds) * self.use_data_ratio]
+        self.image_ids = imgIds
+      
+    def next_state(self):
+        debug_print('DataLoaderNext state!')
 
-    def next_round(self):
-        print('next_round')
-        if self.now_round == len(self.classOrder['id']):
-            raise(ValueError("Next round doesn't exist."))
+        if self.cur_state == len(self.states):
+            raise ValueError("Next state doesn't exist.")
 
-        
-        self.now_round += 1
-        self.seen_class_id = self.classOrder['id'][self.now_round - 1]
+        self.cur_state += 1
+        self.seen_class_id = self.states[self.cur_state]['new_class']['id']
         self.update_imgIds()
         
-    
-    def load_classes(self):
-
+    def init_classes(self):
         self.coco_labels         = {} # dataloader ID -> origin annotation ID
         self.coco_labels_inverse = {} # origin annotation ID -> dataloader ID
 
-        idx = 0
-
-#         for order in self.classOrder['id']:
-#             for catId in order:
-#                 for i in range(4):
-#                     if catId in self.supercategory[i]:
-#                         self.coco_labels_inverse[catId] = i
-#                         break
-#         print(self.coco_labels_inverse)
-        
-        for order in self.classOrder['id']:
-            for catId in order:
-                self.coco_labels[idx] = catId
-                self.coco_labels_inverse[catId] = idx
-                idx += 1
+        for idx, catId in enumerate(self.states[len(self.states) - 1]['knowing_class']['id']):
+            self.coco_labels[idx] = catId
+            self.coco_labels_inverse[catId] = idx
 
     def __len__(self):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        
-        
-        img = self.load_image(idx)
-        annot = self.load_annotations(idx)
+        img = self.coco.load_image(idx)
+        annot = self.coco.load_annotations(idx)
         sample = {'img': img, 'annot': annot}
         if self.transform:
             sample = self.transform(sample)
@@ -272,11 +116,10 @@ class CocoDataset_inOrder(Dataset):
         # parse annotations
         coco_annotations = self.coco.loadAnns(annotations_ids)
         for idx, ann in enumerate(coco_annotations):
-            #When the category doesn't exist in this round, then ignored it 
+            #When the category doesn't exist in this state, then ignored it 
             if(ann['category_id'] not in self.seen_class_id):
                 continue
 
-
             # some annotations have basically no width / height, skip them
             if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
                 continue
@@ -295,7 +138,6 @@ class CocoDataset_inOrder(Dataset):
     def coco_label_to_label(self, coco_label):
         return self.coco_labels_inverse[coco_label]
 
-
     def label_to_coco_label(self, label):
         return self.coco_labels[label]
 
@@ -303,213 +145,115 @@ class CocoDataset_inOrder(Dataset):
         image = self.coco.loadImgs(self.image_ids[image_index])[0]
         return float(image['width']) / float(image['height'])
 
+    def num_new_classes(self):
+        return self.states[self.cur_state]['num_new_class']
     def num_classes(self):
-        if self.dataset == 'coco':
-            return 80
-        elif self.dataset == 'voc':
-            num = 0
-            for r in range(0, self.now_round):
-                num += len(self.classOrder['id'][r])
-            print('dataloader class_num = {}'.format(num))
-            return num
-    
-class rehearsal_DataSet(Dataset):
-    def __init__(self, root_dir, set_name='TrainVoc2012', dataset = 'voc', transform=None, data_split="10+10", method = 'random', now_round = None, per_num = 1, img_ids = []):
+        return self.states[self.cur_state]['num_knowing_class']
+
+class Replay_dataset(IL_dataset):
+    def __init__(self, params:Params, transform=None):
         """
         Args:
-            root_dir (string): COCO directory.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
+            train_params: a Params train_params
+            transform: (callable, optional): Optional transform to be applied on a sample.
+            start_state: interger, the start state index
+            scenario: incremenatl learning state split
+            use_data_ratio: use data ratio, default = 1, which means using all data
         """
-        
-        print('init rehearsal_DataSet')
-        self.root_dir = root_dir
-        
 
-        
-        self.set_name = set_name
-        self.transform = transform
-        self.dataset = dataset
-        self.per_num = per_num #how many picutes each class has 
-        self.method = method
-        self.data_split = data_split
-        #read annotation and some related data
-        self.coco      = COCO(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json'))
-        
-        self.cocoHelper = cocoAPI(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json')) #my custom cocoAPI
+        super().__init__(params, transform, 1, 1)
 
-        self.classOrder = {'id':[],'name':[]}
-        cat_names_sorted = sorted(self.cocoHelper.classes.values())
-        if data_split == "20":
-            self.classOrder['name'] = [cat_names_sorted]
-        elif data_split == "10+10":
-            self.classOrder['name'] = [cat_names_sorted[:10], cat_names_sorted[10:]]
-        elif data_split == "19+1":
-            self.classOrder['name'] = [cat_names_sorted[:19], [cat_names_sorted[19:]]]
-        elif data_split == "15+1":
-            self.classOrder['name'] = [cat_names_sorted[:15], [cat_names_sorted[18]], [cat_names_sorted[16]], 
-                                       [cat_names_sorted[17]], [cat_names_sorted[15]], [cat_names_sorted[19]]]
-        elif data_split == "custom":
-            """
-            ['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 
-            'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor']
-            """
-            custom =  [['aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'person', 'chair', 'cow'], 
-                        ['diningtable', 'dog', 'horse', 'motorbike', 'train', 'pottedplant', 'sheep', 'sofa', 'cat', 'tvmonitor']]
-#             custom = [['pottedplant','diningtable','boat','cow','cat'], 
-#                         ['dog', 'horse', 'motorbike', 'person', 'sofa', 'train', 'tvmonitor']]
-            self.classOrder['name'] = custom
+        self.per_num = params['per_num'] #how many picutes each class has 
+        self.sample_method = params['sample_method']
+        self.cur_state = None
+        self.knowing_class = []
 
-        self.classOrder['id'] = [self.cocoHelper.catNameToId(names) for names in self.classOrder['name']]
+        if self.sample_method == "large_loss":
+            self.large_loss_ckp_path = os.path.join(self.train_params.data_path, 'model', self.train_params.scenario)
 
-        self.load_classes()
-        #get this round's data
-        
-        
-        if dataset == 'coco':
-            self.image_path = os.path.join(self.root_dir, 'images', self.set_name)
-        elif dataset == 'voc':
-            self.image_path = os.path.join(self.root_dir, 'images')
-            
-            
-        self.image_ids = img_ids
-        
-        if len(self.image_ids) != 0:
-            class_num = int(len(self.image_ids) / self.per_num)
-            
-            for i in range(len(self.classOrder['id'])):
-                print(i)
-                if class_num == 0:
-                    self.now_round = i + 1
-                    break
-                class_num -= len(self.classOrder['id'][i])
-            
-            print('rehearsal now_round=',self.now_round)
-        else:
-            if now_round != None:
-                self.reset_by_round(now_round)
-            else:
-                self.now_round = None
+                
     def reset_by_imgIds(self, per_num = 1, img_ids = []):
-                           
+        """reset replay dataset by image ids
+
+            Args:
+                per_num: the number of imgs for each classes
+                img_ids: the index of images
+        """
         self.image_ids = img_ids
-        self.per_num = per_num #how many picutes each class has 
+        self.per_num = per_num #how many picutes in each class
+        self.knowing_class = []
         if len(self.image_ids) != 0:
             class_num = int(len(self.image_ids) / self.per_num)
 
-            for i in range(len(self.classOrder['id'])):
-                class_num -= len(self.classOrder['id'][i])
-                if class_num == 0:
-                    self.now_round = i + 1
-                    break
-    def reset_by_round(self, now_round):
-        """
-        use not round to reset imgIds
-        """
-        
-        
-        with open(os.path.join('/'.join(self.root_dir.split('/')[:-2]), 'model', 'w_distillation', 'round1' , self.data_split, 'losses.pickle'), 'rb') as f:
-            losses = pickle.load(f)
-        #Exception
-        if now_round == 1:
-            raise(ValueError("Now round cannot be 1."))
-            
-        print('Sample data on Round{}'.format(now_round))
-        self.now_round = now_round
-        
-        if self.method == 'random':
-            previous_class_id = []
-            future_class_id = []
-            for i in range(now_round - 1):
-                previous_class_id.extend(self.classOrder['id'][i])
-            
-            
-            for i in range(now_round - 1, len(self.classOrder['id'])):
-                future_class_id.extend(self.classOrder['id'][i])
-            
-            future_imgIds = set(self.cocoHelper.getImgIdFromCats(future_class_id))
+            for state in range(len(self.states)):
+                if self.states[state]['num_knowing_class'] == class_num:
+                    self.cur_state = state + 1
+                    return
+            raise ValueError("The length of img_ids doesn't meet any state")
 
-            for CID in previous_class_id:
-                imgIds = self.cocoHelper.getImgIdFromCats(CID)
-                imgIds = set(imgIds) - future_imgIds
-                if imgIds == {}:
-                    raise(ValueError('Class id:{} contained zero pictures different from now round.'.format(CID)))
-                imgIds = imgIds - set(self.image_ids)
-                imgIds = list(imgIds)
-                
+    def sample_imgs(self, sample_CIDs:list, limit_imgIds:list):
+        # read large loss checkpoint
+        if self.sample_method == "large_loss":
+            
+            large_loss_ckp = os.path.join(self.large_loss_ckp_path, "state{}".format(self.cur_state - 1), 'large_losses.pickle')
+            with open(large_loss_ckp, 'rb') as f:
+                losses = pickle.load(f)
+
+        for CID in sample_CIDs:
+            imgIds = self.coco.get_imgs_by_cats(CID)
+            imgIds = list(set(imgIds) - limit_imgIds - set(self.image_ids))
+            if imgIds == []:
+                raise(ValueError('Class id:{} contained zero pictures different from other class in current state.'.format(CID)))
+
+            # large loss sample,(use past loss to sample)
+            if self.sample_method == 'large_loss':
                 cur_losses = [losses[img_id][2] for img_id in imgIds]
-                
-                #cur_losses = [losses[self.coco_labels_inverse[CID]][img_id] for img_id in set(losses[self.coco_labels_inverse[CID]].keys() - future_imgIds)]
-                #cur_losses = [losses[self.coco_labels_inverse[CID]][img_id] for img_id in imgIds]
                 ids = sorted(range(len(cur_losses)), key=lambda k: cur_losses[k])
-                
-                #self.image_ids.extend([imgIds[id_] for id_ in ids[:self.per_num]])
                 self.image_ids.extend([imgIds[id_] for id_ in ids[len(ids) - self.per_num:]])
-                
-                # self.image_ids.extend(random.sample(imgIds, self.per_num))
-    
-                           
-    def next_round(self):
-        print('rehearsal dataset next round')
-        self.now_round += 1
-        if self.now_round > len(self.classOrder['id']):
-            raise(ValueError("Round{} doesn't exist!.".format(now_round)))
-        if self.method == 'random':
-            previous_class_id = []
-            future_class_id = []
-            for i in range(self.now_round - 1):
-                previous_class_id.extend(self.classOrder['id'][i])
-            for i in range(self.now_round - 1, len(self.classOrder['id'])):
-                future_class_id.extend(self.classOrder['id'][i])
-
-            future_imgIds = set(self.cocoHelper.getImgIdFromCats(future_class_id))
-
-            for CID in previous_class_id[int(len(self.image_ids) / self.per_num):]:
-                imgIds = self.cocoHelper.getImgIdFromCats(CID)
-                imgIds = set(imgIds) - future_imgIds
-                if imgIds == {}:
-                    raise(ValueError('Class id:{} contained zero pictures different from future round.'.format(CID)))
-                imgIds = imgIds - set(self.image_ids)
-                imgIds = list(imgIds)
+            # random sample
+            else:
                 self.image_ids.extend(random.sample(imgIds, self.per_num))
 
-    def load_classes(self):
+    def reset_by_state(self, state:int):
+        """ use state index to reset imgIds
+        """
+        # Exception
+        if state == 0:
+            raise ValueError("Inital state cannot sample picture")
+        
+        self.cur_state = state
+        debug_print('Sample data on state{}'.format(state))
+        
+        
+        self.knowing_class = self.states[self.cur_state - 1]['knowing_class']['id']
 
-        self.coco_labels         = {} # dataloader ID -> origin annotation ID
-        self.coco_labels_inverse = {} # origin annotation ID -> dataloader ID
+        
+        future_CIDs = []
+        for i in range(self.cur_state, len(self.states)):
+            future_CIDs.extend(self.states[i]['new_class']['id'])
 
-        idx = 0
+        self.sample_imgs(self.knowing_class, set(self.coco.get_imgs_by_cats(future_CIDs)))
 
-        for order in self.classOrder['id']:
-            for catId in order:
-                self.coco_labels[idx] = catId
-                self.coco_labels_inverse[catId] = idx
-                idx += 1
+    def next_state(self):
+        """add new state, sample old data
+        """
+        debug_print('Replay dataloader next state!')
+        if self.cur_state == None:
+            self.cur_state = 0
+        self.cur_state += 1
+        if self.cur_state == len(self.states):
+            raise(ValueError("State{} doesn't exist in Replay dataloader".format(self.cur_state)))
 
-    def __len__(self):
-        return len(self.image_ids)
+        sample_CIDs = self.states[self.cur_state - 1]['new_class']['id']
+        self.knowing_class.extend(sample_CIDs)
 
-    def __getitem__(self, idx):
+        # get futrue class ids and futrue imgs
+        future_CIDs = []
+        for i in range(self.cur_state, len(self.states)):
+            future_CIDs.extend(self.states[i]['new_class']['id'])
 
-        img = self.load_image(idx)
-        annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-
-    def load_image(self, image_index):
-        image_info = self.coco.loadImgs(self.image_ids[image_index])[0]
-        file_name = image_info['file_name']
-        path = os.path.join(self.image_path, file_name) #file_name[:-4] mean the image's id
-        img = skimage.io.imread(path)
-
-        if len(img.shape) == 2:
-            img = skimage.color.gray2rgb(img)
-            
-        return img.astype(np.float32)/255.0
-
+        self.sample_imgs(self.knowing_class, set(self.coco.get_imgs_by_cats(future_CIDs)))
+        
     def load_annotations(self, image_index):
         # get ground truth annotations
         annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
@@ -522,11 +266,6 @@ class rehearsal_DataSet(Dataset):
         # parse annotations
         coco_annotations = self.coco.loadAnns(annotations_ids)
         for idx, ann in enumerate(coco_annotations):
-#             #When the category doesn't exist in this round, then ignored it 
-#             if(ann['category_id'] not in self.seen_class_id):
-#                 continue
-
-
             # some annotations have basically no width / height, skip them
             if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
                 continue
@@ -541,312 +280,7 @@ class rehearsal_DataSet(Dataset):
         annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
 
         return annotations
-
-    def coco_label_to_label(self, coco_label):
-        return self.coco_labels_inverse[coco_label]
-
-
-    def label_to_coco_label(self, label):
-        return self.coco_labels[label]
-
-    def image_aspect_ratio(self, image_index):
-        image = self.coco.loadImgs(self.image_ids[image_index])[0]
-        return float(image['width']) / float(image['height'])
-
-    def num_classes(self):
-        return int(len(self.prev_imgIds) / self.per_num)
   
-
-class CocoDataset(Dataset):
-    """Coco dataset."""
-
-    def __init__(self, root_dir, set_name='train2017', dataset = 'coco', transform=None, ):
-        """
-        Args:
-            root_dir (string): COCO directory.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        
-        self.root_dir = root_dir
-        self.set_name = set_name
-        self.transform = transform
-
-        self.coco      = COCO(os.path.join(self.root_dir, 'annotations', 'instances_' + self.set_name + '.json'))
-        self.image_ids = self.coco.getImgIds()
-        self.dataset = dataset
-        self.load_classes()
-
-        if dataset == 'coco':
-            self.image_path = os.path.join(self.root_dir, 'images', self.set_name)
-        elif dataset == 'voc':
-            self.image_path = os.path.join(self.root_dir, 'images')
-        with open(os.path.join(self.root_dir, 'path_mapping', set_name + '_path_mapping.pickle'), 'rb') as f:
-            self.path_mapping = pickle.load(f)
-
-    def load_classes(self):
-        # load class names (name -> label)
-        categories = self.coco.loadCats(self.coco.getCatIds())
-        categories.sort(key=lambda x: x['id'])
-
-        self.classes             = {}
-        self.coco_labels         = {}
-        self.coco_labels_inverse = {}
-        for c in categories:
-            self.coco_labels[len(self.classes)] = c['id']
-            self.coco_labels_inverse[c['id']] = len(self.classes)
-            self.classes[c['name']] = len(self.classes)
-
-        # also load the reverse (label -> name)
-        self.labels = {}
-        for key, value in self.classes.items():
-            self.labels[value] = key
-
-    def __len__(self):
-        return len(self.image_ids)
-
-    def __getitem__(self, idx):
-
-        img = self.load_image(idx)
-        annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-
-    def load_image(self, image_index):
-        image_info = self.coco.loadImgs(self.image_ids[image_index])[0]
-        file_name = image_info['file_name']
-        path = os.path.join(self.image_path, self.path_mapping[int(file_name[:-4])], file_name)
-        img = skimage.io.imread(path)
-
-        if len(img.shape) == 2:
-            img = skimage.color.gray2rgb(img)
-
-        return img.astype(np.float32)/255.0
-
-    def load_annotations(self, image_index):
-        # get ground truth annotations
-        annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
-        annotations     = np.zeros((0, 5))
-
-        # some images appear to miss annotations (like image with id 257034)
-        if len(annotations_ids) == 0:
-            return annotations
-
-        # parse annotations
-        coco_annotations = self.coco.loadAnns(annotations_ids)
-        for idx, a in enumerate(coco_annotations):
-
-            # some annotations have basically no width / height, skip them
-            if a['bbox'][2] < 1 or a['bbox'][3] < 1:
-                continue
-
-            annotation        = np.zeros((1, 5))
-            annotation[0, :4] = a['bbox']
-            annotation[0, 4]  = self.coco_label_to_label(a['category_id'])
-            annotations       = np.append(annotations, annotation, axis=0)
-
-        # transform from [x, y, w, h] to [x1, y1, x2, y2]
-        annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
-        annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
-
-        return annotations
-
-    def coco_label_to_label(self, coco_label):
-        return self.coco_labels_inverse[coco_label]
-
-
-    def label_to_coco_label(self, label):
-        return self.coco_labels[label]
-
-    def image_aspect_ratio(self, image_index):
-        image = self.coco.loadImgs(self.image_ids[image_index])[0]
-        return float(image['width']) / float(image['height'])
-
-    def num_classes(self):
-        if self.dataset == 'coco':
-            return 80
-        elif self.dataset == 'voc':
-            return 20
-
-
-class CSVDataset(Dataset):
-    """CSV dataset."""
-
-    def __init__(self, train_file, class_list, transform=None):
-        """
-        Args:
-            train_file (string): CSV file with training annotations
-            annotations (string): CSV file with class list
-            test_file (string, optional): CSV file with testing annotations
-        """
-        self.train_file = train_file
-        self.class_list = class_list
-        self.transform = transform
-
-        # parse the provided class file
-        try:
-            with self._open_for_csv(self.class_list) as file:
-                self.classes = self.load_classes(csv.reader(file, delimiter=','))
-        except ValueError as e:
-            raise(ValueError('invalid CSV class file: {}: {}'.format(self.class_list, e)))
-
-        self.labels = {}
-        for key, value in self.classes.items():
-            self.labels[value] = key
-
-        # csv with img_path, x1, y1, x2, y2, class_name
-        try:
-            with self._open_for_csv(self.train_file) as file:
-                self.image_data = self._read_annotations(csv.reader(file, delimiter=','), self.classes)
-        except ValueError as e:
-            raise(ValueError('invalid CSV annotations file: {}: {}'.format(self.train_file, e)))
-        self.image_names = list(self.image_data.keys())
-
-    def _parse(self, value, function, fmt):
-        """
-        Parse a string into a value, and format a nice ValueError if it fails.
-        Returns `function(value)`.
-        Any `ValueError` raised is catched and a new `ValueError` is raised
-        with message `fmt.format(e)`, where `e` is the caught `ValueError`.
-        """
-        try:
-            return function(value)
-        except ValueError as e:
-            raise_from(ValueError(fmt.format(e)), None)
-
-    def _open_for_csv(self, path):
-        """
-        Open a file with flags suitable for csv.reader.
-        This is different for python2 it means with mode 'rb',
-        for python3 this means 'r' with "universal newlines".
-        """
-        if sys.version_info[0] < 3:
-            return open(path, 'rb')
-        else:
-            return open(path, 'r', newline='')
-
-    def load_classes(self, csv_reader):
-        result = {}
-
-        for line, row in enumerate(csv_reader):
-            line += 1
-
-            try:
-                class_name, class_id = row
-            except ValueError:
-                raise(ValueError('line {}: format should be \'class_name,class_id\''.format(line)))
-            class_id = self._parse(class_id, int, 'line {}: malformed class ID: {{}}'.format(line))
-
-            if class_name in result:
-                raise ValueError('line {}: duplicate class name: \'{}\''.format(line, class_name))
-            result[class_name] = class_id
-        return result
-
-    def __len__(self):
-        return len(self.image_names)
-
-    def __getitem__(self, idx):
-
-        img = self.load_image(idx)
-        annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
-        if self.transform:
-            sample = self.transform(sample)
-
-        return sample
-
-    def load_image(self, image_index):
-        img = skimage.io.imread(self.image_names[image_index])
-
-        if len(img.shape) == 2:
-            img = skimage.color.gray2rgb(img)
-        
-        return img.astype(np.float32)/255.0
-
-    def load_annotations(self, image_index):
-        # get ground truth annotations
-        annotation_list = self.image_data[self.image_names[image_index]]
-        annotations     = np.zeros((0, 5))
-
-        # some images appear to miss annotations (like image with id 257034)
-        if len(annotation_list) == 0:
-            return annotations
-
-        # parse annotations
-        for idx, a in enumerate(annotation_list):
-            # some annotations have basically no width / height, skip them
-            x1 = a['x1']
-            x2 = a['x2']
-            y1 = a['y1']
-            y2 = a['y2']
-
-            if (x2-x1) < 1 or (y2-y1) < 1:
-                continue
-
-            annotation        = np.zeros((1, 5))
-            
-            annotation[0, 0] = x1
-            annotation[0, 1] = y1
-            annotation[0, 2] = x2
-            annotation[0, 3] = y2
-
-            annotation[0, 4]  = self.name_to_label(a['class'])
-            annotations       = np.append(annotations, annotation, axis=0)
-
-        return annotations
-
-    def _read_annotations(self, csv_reader, classes):
-        result = {}
-        for line, row in enumerate(csv_reader):
-            line += 1
-
-            try:
-                img_file, x1, y1, x2, y2, class_name = row[:6]
-            except ValueError:
-                raise_from(ValueError('line {}: format should be \'img_file,x1,y1,x2,y2,class_name\' or \'img_file,,,,,\''.format(line)), None)
-
-            if img_file not in result:
-                result[img_file] = []
-
-            # If a row contains only an image path, it's an image without annotations.
-            if (x1, y1, x2, y2, class_name) == ('', '', '', '', ''):
-                continue
-
-            x1 = self._parse(x1, int, 'line {}: malformed x1: {{}}'.format(line))
-            y1 = self._parse(y1, int, 'line {}: malformed y1: {{}}'.format(line))
-            x2 = self._parse(x2, int, 'line {}: malformed x2: {{}}'.format(line))
-            y2 = self._parse(y2, int, 'line {}: malformed y2: {{}}'.format(line))
-
-            # Check that the bounding box is valid.
-            if x2 <= x1:
-                raise ValueError('line {}: x2 ({}) must be higher than x1 ({})'.format(line, x2, x1))
-            if y2 <= y1:
-                raise ValueError('line {}: y2 ({}) must be higher than y1 ({})'.format(line, y2, y1))
-
-            # check if the current class name is correctly present
-            if class_name not in classes:
-                raise ValueError('line {}: unknown class name: \'{}\' (classes: {})'.format(line, class_name, classes))
-
-            result[img_file].append({'x1': x1, 'x2': x2, 'y1': y1, 'y2': y2, 'class': class_name})
-        return result
-
-    def name_to_label(self, name):
-        return self.classes[name]
-
-    def label_to_name(self, label):
-        return self.labels[label]
-
-    def num_classes(self):
-        return max(self.classes.values()) + 1
-
-    def image_aspect_ratio(self, image_index):
-        image = Image.open(self.image_names[image_index])
-        return float(image.width) / float(image.height)
-
-
 def collater(data):
 
     imgs = [s['img'] for s in data]
@@ -905,7 +339,7 @@ class Resizer(object):
             scale = max_side / largest_side
 
         # resize the image with the computed scale
-        image = skimage.transform.resize(image, (int(round(rows*scale)), int(round((cols*scale)))))
+        image = skimage.transform.resize(image, (int(state(rows*scale)), int(state((cols*scale)))))
         rows, cols, cns = image.shape
 
         pad_w = 32 - rows%32
@@ -917,7 +351,6 @@ class Resizer(object):
         annots[:, :4] *= scale
 
         return {'img': torch.from_numpy(new_image), 'annot': torch.from_numpy(annots), 'scale': scale}
-
 
 class Augmenter(object):
     """Convert ndarrays in sample to Tensors."""

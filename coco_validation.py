@@ -10,7 +10,27 @@ assert torch.__version__.split('.')[0] == '1'
 
 print('CUDA available: {}'.format(torch.cuda.is_available()))
 
+# def validation(val_model, set_name, model_round, model_epoch, val_round):
+#     global data_split
+#     print("-"*100)
+#     print('Start eval on Round{} Epoch{}!'.format(model_round, model_epoch))
 
+    
+#     val_model.eval()
+#     val_model.freeze_bn()
+#     #set_name = "{}Voc2012".format(dataType, )
+#     if "2012" in set_name:
+#         years = "VOC2012"
+#     else:
+#         years = "VOC2007"
+    
+#     print('Validation data is {} at Round{}'.format(set_name, val_round))
+#     dataset_val = CocoDataset_inOrder(os.path.join(root_dir, 'DataSet', years), set_name=set_name, dataset = 'voc', 
+#                     transform=transforms.Compose([Normalizer(), Resizer()]), 
+#                     start_round=val_round, data_split = data_split)
+ 
+#     coco_eval.evaluate_coco(dataset_val, val_model, root_dir, method, model_round, model_epoch)
+#     del dataset_val
 def main(args=None):
     parser = argparse.ArgumentParser(description='Simple training script for training a RetinaNet network.')
 
