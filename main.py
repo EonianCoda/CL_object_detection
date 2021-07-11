@@ -1,6 +1,5 @@
 # built-in
 import argparse
-import collections
 # torch 
 import torch
 import torch.optim as optim
@@ -11,7 +10,6 @@ from retinanet.dataloader import IL_dataset
 from retinanet.dataloader import Resizer, Augmenter, Normalizer
 # preprocessing
 from preprocessing.params import Params
-from preprocessing.debug import debug_print
 # train
 from train.il_trainer import IL_Trainer
 from train.train import train_process

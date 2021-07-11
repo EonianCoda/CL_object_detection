@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-from preprocessing.params import Params
-from train.il_trainer import IL_Trainer
 
 def calc_iou(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
@@ -24,7 +22,7 @@ def calc_iou(a, b):
 
 
 class FocalLoss(nn.Module):
-    def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params:Params):
+    def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params):
         alpha = params['alpha'] # default = 0.25
         gamma = params['gamma'] # default = 2
 
@@ -212,7 +210,7 @@ class FocalLoss(nn.Module):
         return tuple(result)
 
 class IL_Loss(nn.Module):
-    def __init__(self, il_trainer:IL_Trainer):
+    def __init__(self, il_trainer):
         
         self.model = il_trainer.model
         self.il_trainer = il_trainer

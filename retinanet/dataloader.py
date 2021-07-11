@@ -15,16 +15,13 @@ import skimage.color
 import skimage
 import pickle
 
-from PIL import Image
-
 from preprocessing.debug import debug_print
-from preprocessing.params import Params
 
 
 class IL_dataset(Dataset):
     """incremental learning dataset."""
 
-    def __init__(self, params:Params,transform=None, start_state=0, use_data_ratio = 1):
+    def __init__(self, params,transform=None, start_state=0, use_data_ratio = 1):
         """
         Args:
             train_params: train_params, which manage the training params
@@ -151,7 +148,7 @@ class IL_dataset(Dataset):
         return self.states[self.cur_state]['num_knowing_class']
 
 class Replay_dataset(IL_dataset):
-    def __init__(self, params:Params, transform=None):
+    def __init__(self, params, transform=None):
         """
         Args:
             train_params: a Params train_params

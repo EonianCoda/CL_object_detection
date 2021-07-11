@@ -7,7 +7,7 @@ from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 # retinanet
 from retinanet.dataloader import AspectRatioBasedSampler, IL_dataset, Replay_dataset, Resizer, Augmenter, Normalizer, collater
-from retinanet.model import ResNet, create_retinanet
+from retinanet.model import create_retinanet
 # traing util
 from preprocessing.params import Params
 from preprocessing.debug import debug_print
@@ -17,7 +17,7 @@ from IL_method.agem import A_GEM
 
 
 class IL_Trainer(object):
-    def __init__(self, params:Params, model:ResNet, optimizer, scheduler, dataset_train:IL_dataset):
+    def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset):
         self.params = params
  
         # training setting

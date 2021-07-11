@@ -1,17 +1,10 @@
-import random
-import numpy as np
 import torch
 
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import Sampler
-
 from retinanet.dataloader import collater, AspectRatioBasedSampler
-
 from train.train import fast_zero_grad
-from preprocessing.params import Params
 
 class A_GEM(object):
-    def __init__(self, model, replay_dataset, params:Params):
+    def __init__(self, model, replay_dataset, params):
         self.memory = replay_dataset
         self.model = model
         self.params = params

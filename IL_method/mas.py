@@ -1,20 +1,12 @@
 import pickle
 import os
-
-from torch import tensor
-from retinanet.losses import FocalLoss
-
 import torch
-import torch.nn as nn
-
-from preprocessing.params import Params
 from preprocessing.debug import debug_print
 
 class MAS(object):
-    def __init__(self, model:nn.Module, params:Params):
+    def __init__(self, model, params):
         self.model = model
         self.params = params
-        self.focal_loss = FocalLoss()
     def load_importance(self, file):
         if not os.path.isfile(file):
             return False

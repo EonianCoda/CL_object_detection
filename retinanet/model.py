@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 from torchvision.ops import nms
-
-
 from retinanet import losses
 from retinanet.utils import BasicBlock, Bottleneck, BBoxTransform, ClipBoxes
 from retinanet.anchors import Anchors
@@ -440,8 +438,6 @@ class ResNet(nn.Module):
         debug_print("Add new neurons in classification Moddel output layers!")
         self.num_classes += num_new_classes
         self.classificationModel.next_state(num_new_classes)
-       
-
 def create_retinanet(depth, num_classes, pretrained=True, **kwargs):
     """Construct retinanet
         Args:
