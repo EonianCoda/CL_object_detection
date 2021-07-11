@@ -16,7 +16,8 @@ from train.train import train_process
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
 PRINT_INFO = True # whether print some information about continual learning on the scrren
-
+DEFAULT_ALPHA = 0.25
+DEFAULT_GAMMA = 2.0
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -71,8 +72,8 @@ def get_parser(args=None):
     parser.add_argument('--start_state', type=int)
     parser.add_argument('--end_state', type=int)
     # retinanet params
-    parser.add_argument('--alpha', type=float, default=0.25)
-    parser.add_argument('--gamma', type=float, default=2.0)
+    parser.add_argument('--alpha', type=float, default=DEFAULT_ALPHA)
+    parser.add_argument('--gamma', type=float, default=DEFAULT_GAMMA)
     # IL params 
     parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
     parser.add_argument('--suffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
@@ -102,7 +103,8 @@ def get_parser(args=None):
     parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
 
 
-    # always default paras 
+    # always default paras
+    parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)

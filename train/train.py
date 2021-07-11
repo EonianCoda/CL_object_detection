@@ -7,8 +7,6 @@ from retinanet.losses import IL_Loss
 
 from train.il_trainer import IL_Trainer
 
-IGNORE_BUG = False
-
 def fast_zero_grad(model):
     for param in model.parameters():
         param.grad = None
@@ -76,7 +74,7 @@ def train_process(il_trainer : IL_Trainer):
                     
                 start = time.time()
                 fast_zero_grad(il_trainer.model)
-                if IGNORE_BUG:
+                if not il_trainer.params['debug']:
                     try:
                         losses = train_iter(il_trainer,il_loss, data)
                     except Exception as e:
