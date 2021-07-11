@@ -199,10 +199,10 @@ class Params(object):
         """
         if epoch == -1:
             ckp_path = os.path.join(self['ckp_path'], "state{}".format(state))
-            ckp_names = [ckp_name for ckp_name in os.listdir(ckp_path) if 'checkpoint.pt' in ckp_name]
-            epoch = max([int(name.split('_')[-1]) for name in ckp_names])
+            ckp_names = [ckp_name for ckp_name in os.listdir(ckp_path) if '.pt' in ckp_name]
+            epoch = max([int(name.split('_')[-1].split('.')[0]) for name in ckp_names])
 
-        ('Load checkpoint at state{} Epoch{}'.format(state, epoch))    
+        debug_print('Load checkpoint at state{} Epoch{}'.format(state, epoch)) 
         return torch.load(self.get_ckp_path(state, epoch))
        
     def load_model(self, state:int, epoch:int, model, optimizer = None, scheduler = None):

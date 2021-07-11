@@ -39,7 +39,10 @@ def create_IL_trainer(params:Params):
                                use_data_ratio = params['use_data_ratio'])
 
     # Create the model
-    retinanet = create_retinanet(params['depth'], params.states[start_state]['num_knowing_class'])
+    if start_epoch == 1 and start_state != 0:
+        retinanet = create_retinanet(params['depth'], params.states[start_state - 1]['num_knowing_class'])
+    else:
+        retinanet = create_retinanet(params['depth'], params.states[start_state]['num_knowing_class'])
     retinanet = retinanet.cuda()
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
