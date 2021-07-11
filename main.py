@@ -1,4 +1,3 @@
-# built-in
 import argparse
 # torch 
 import torch
@@ -14,6 +13,7 @@ from preprocessing.params import Params
 from train.il_trainer import IL_Trainer
 from train.train import train_process
 # Global Setting
+
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
 PRINT_INFO = True # whether print some information about continual learning on the scrren
 
@@ -58,56 +58,58 @@ def create_IL_trainer(params:Params):
                             dataset_train=dataset_train)
 
     return trainer
-    
 
-parser = argparse.ArgumentParser()
-# must set params
-parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
-parser.add_argument('--start_epoch', type=int)
-parser.add_argument('--end_epoch', help='Number of epochs', type=int)
-parser.add_argument('--start_state', type=int)
-parser.add_argument('--end_state', type=int)
-# retinanet params
-parser.add_argument('--alpha', type=float, default=0.25)
-parser.add_argument('--gamma', type=float, default=2.0)
-# IL params 
-parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
-parser.add_argument('--suffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
+def get_parser(args=None):
+    parser = argparse.ArgumentParser()
+    # must set params
+    parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
+    parser.add_argument('--start_epoch', type=int)
+    parser.add_argument('--end_epoch', help='Number of epochs', type=int)
+    parser.add_argument('--start_state', type=int)
+    parser.add_argument('--end_state', type=int)
+    # retinanet params
+    parser.add_argument('--alpha', type=float, default=0.25)
+    parser.add_argument('--gamma', type=float, default=2.0)
+    # IL params 
+    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
+    parser.add_argument('--suffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
 
-parser.add_argument('--distill', help='whether add distillation loss, default = False',type=str2bool , default=False)
-parser.add_argument('--distill_logits', help='whether distillation loss use logits, default = False',type=str2bool , default=False)
-parser.add_argument('--distill_logits_on', help='whether distillation loss use logits on new class or old class,two option:"new" or ""old default = new', default="new")
-parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
+    parser.add_argument('--distill', help='whether add distillation loss, default = False',type=str2bool , default=False)
+    parser.add_argument('--distill_logits', help='whether distillation loss use logits, default = False',type=str2bool , default=False)
+    parser.add_argument('--distill_logits_on', help='whether distillation loss use logits on new class or old class,two option:"new" or ""old default = new', default="new")
+    parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
 
-parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd', type=int, default=2)
-parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','large_loss','custom'", default="custom")
+    parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd', type=int, default=2)
+    parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','large_loss','custom'", default="custom")
 
-parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
-parser.add_argument('--mas_file', help='the name of mas file name, default="MAS"', default="MAS")
+    parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
+    parser.add_argument('--mas_file', help='the name of mas file name, default="MAS"', default="MAS")
 
-parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
-# parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)
+    parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
+    # parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)
 
-parser.add_argument('--warm_stage', help='the number of warm-up stage, 0 mean not warm up, default = 0', type=int, default=0)
-parser.add_argument('--warm_epoch', help='the number of epoch for each warm-up stage, use " "(space) to split epoch for different stage', type=int, nargs='*', default=[10,10])
-parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
+    parser.add_argument('--warm_stage', help='the number of warm-up stage, 0 mean not warm up, default = 0', type=int, default=0)
+    parser.add_argument('--warm_epoch', help='the number of epoch for each warm-up stage, use " "(space) to split epoch for different stage', type=int, nargs='*', default=[10,10])
+    parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
 
-# IL experimental params
-parser.add_argument('--ignore_ground_truth', help='whether ignore ground truth, default = False',type=str2bool , default=False)
-parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
-parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
-parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
+    # IL experimental params
+    parser.add_argument('--ignore_ground_truth', help='whether ignore ground truth, default = False',type=str2bool , default=False)
+    parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
+    parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
+    parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
 
 
-# always default paras 
-parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
-parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
-parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
-parser.add_argument('--use_data_ratio', type=int, default=1)
-parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = True',type=str2bool , default=True)
-parser = vars(parser.parse_args())
+    # always default paras 
+    parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
+    parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
+    parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
+    parser.add_argument('--use_data_ratio', type=int, default=1)
+    parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = True',type=str2bool , default=True)
+    parser = vars(parser.parse_args(args))
+    return parser
 
-def main():
+def main(args=None):
+    parser = get_parser(args)
     params = Params(parser, ROOT_DIR)
     il_trainer = create_IL_trainer(params)
 
@@ -118,7 +120,6 @@ def main():
         params.states.print_state_info()
         print("Start Training!")
         print('-'*70)
-
 
     train_process(il_trainer)
 
