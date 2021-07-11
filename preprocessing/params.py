@@ -114,9 +114,9 @@ class Params(object):
         # init path and directory
         self['root_dir'] = root_dir
         ckp_path = os.path.join(self['root_dir'], 'model')
-        self.create_dir(ckp_path)
+        create_dir(ckp_path)
         ckp_path = os.path.join(ckp_path, self['scenario'])
-        self.create_dir(ckp_path)
+        create_dir(ckp_path)
         self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/model/15_1", "root_dir/model/20"
         self['data_path'] = os.path.join(self['root_dir'], 'dataset', self['dataset']) # the training data path
 
@@ -124,7 +124,7 @@ class Params(object):
         self.init_warmup()
         # init states for scenario
         coco_path = os.path.join(self['data_path'], 'annotations', '{}_{}.json'.format(self['dataset'], self['data_split']))
-        self.states = IL_states(coco_path)
+        self.states = IL_states(coco_path, self['scenario_list'], self['suffle_class'])
 
     def __setitem__(self, key, value):
         self._params[key] = value
@@ -132,6 +132,8 @@ class Params(object):
         return self._params[key]
 
     def init_warmup(self):
+        if self['warm_stage'] == 0:
+            return
         # Exception
         if len(self['warm_epoch']) != self['warm_stage']:
             raise ValueError("The number of warm stage must match the warm epochs")
@@ -182,7 +184,7 @@ class Params(object):
         """
         ckp_path = os.path.join(self['ckp_path'], "state{}".format(state))
         ckp_name = '{}_retinanet_{}_checkpoint.pt'.format(self['dataset'], epoch)
-        self.create_dir(ckp_path)
+        create_dir(ckp_path)
         return os.path.join(ckp_path, ckp_name)
 
     def load_checkpoint(self, state:int, epoch:int):
