@@ -148,7 +148,7 @@ class IL_Trainer(object):
 
     def save_ckp(self, epoch_loss:list,epoch:int):
 
-        self.params.save_checkpoint(self.cur_state, epoch, self.model, self.optimizer, self.sceduler, self.loss_hist, epoch_loss)
+        self.params.save_checkpoint(self.cur_state, epoch, self.model, self.optimizer, self.scheduler, self.loss_hist, epoch_loss)
     def get_cur_state(self):
         return self.params.states[self.cur_state]
 

@@ -4,7 +4,7 @@ from preprocessing.enhance_coco import Enhance_COCO
 import os
 import torch
 import random
-
+import copy
 WARM_UP_WHITE_LIST = { 'output':['classificationModel.output'],
                        'resnet':['fpn', 'classificationModel', 'regressionModel'],
                        'fpn':['classificationModel', 'regressionModel']}
@@ -39,7 +39,7 @@ class IL_states(object):
                 shuffle: whether shuffle the order
         """
 
-        self.states = [EMPTY_STATE for _ in scenario_list]
+        self.states = dict([(idx, copy.deepcopy(EMPTY_STATE)) for idx, _ in enumerate(scenario_list)])
 
         classes = sorted(self.coco.classes.values())
         if shuffle:
@@ -56,7 +56,10 @@ class IL_states(object):
             total_num += num
             # non-incremental initial state
             if idx == 0:
-                self.states[idx]['new_class']['name'].append(classes[:total_num])
+                self.states[idx]['new_class']['name'].extend(classes[:total_num])
+                self.states[idx]['new_class']['id'] = self.coco.catName_to_id(self.states[idx]['new_class']['name'], sort=True)
+                self.states[idx]['knowing_class']['name'] = self.states[idx]['new_class']['name']
+                self.states[idx]['knowing_class']['id'] = self.states[idx]['new_class']['id']
                 self.states[idx]['num_knowing_class'] = num
                 continue
 
@@ -85,20 +88,19 @@ class IL_states(object):
     def print_state_info(self):
         print("Total State number = {}".format(self.total_states_num))
         print("Total Class number = {}".format(self.total_class_num))
-        for idx, state in enumerate(self.states):
+        for idx, state in enumerate(self.states.values()):
             print("State {}:".format(idx))
-            print("New class number = {}".format(self.states['num_new_class']))
-            print("Knowing class number = {}".format(self.states['num_knowing_class']))
+            print("New class number = {}".format(state['num_new_class']))
+            print("Knowing class number = {}".format(state['num_knowing_class']))
             print("New class:")
-            print("\t Name = ", self.states[idx]['past_class']['name'])
-            print("\t Id = ", self.coco.catName_to_id(self.states[idx]['past_class']['name']))
+            print("\t Name = ", state['new_class']['name'])
+            print("\t Id = ", self.coco.catName_to_id(state['new_class']['name']))
 
 class Params(object):
-    def __init__(self, parser:dict, root_dir:str):
+    def __init__(self, parser:dict):
         """ Parse information from parser, and provide some helpful function
             Args:
                 parser: dict
-                root_dir: str, indicating root path
         """
 
         self._params = parser
@@ -112,7 +114,6 @@ class Params(object):
             self['data_split'] = "train"
 
         # init path and directory
-        self['root_dir'] = root_dir
         ckp_path = os.path.join(self['root_dir'], 'model')
         create_dir(ckp_path)
         ckp_path = os.path.join(ckp_path, self['scenario'])
@@ -176,14 +177,14 @@ class Params(object):
                 os.remove(self.get_ckp_path(state, i))
 
     def get_ckp_path(self, state:int, epoch:int):
-        """get checkpoint's path, which contains the checkpoint's name, for example: "/model/20/voc2007_retinanet_10_checkpoint.pt"
+        """get checkpoint's path, which contains the checkpoint's name, for example: "/model/20/voc2007_checkpoint_10.pt"
 
             Args:
                 state: current state index 
                 epoch: current epoch num
         """
         ckp_path = os.path.join(self['ckp_path'], "state{}".format(state))
-        ckp_name = '{}_retinanet_{}_checkpoint.pt'.format(self['dataset'], epoch)
+        ckp_name = '{}_checkpoint_{}.pt'.format(self['dataset'], epoch)
         create_dir(ckp_path)
         return os.path.join(ckp_path, ckp_name)
 
@@ -199,7 +200,7 @@ class Params(object):
         if epoch == -1:
             ckp_path = os.path.join(self['ckp_path'], "state{}".format(state))
             ckp_names = [ckp_name for ckp_name in os.listdir(ckp_path) if 'checkpoint.pt' in ckp_name]
-            epoch = max([int(name.split('_')[-2]) for name in ckp_names])
+            epoch = max([int(name.split('_')[-1]) for name in ckp_names])
 
         ('Load checkpoint at state{} Epoch{}'.format(state, epoch))    
         return torch.load(self.get_ckp_path(state, epoch))
@@ -241,6 +242,36 @@ class Params(object):
             data['epoch_loss'] = epoch_loss
             
         torch.save(data, save_path)
+    def output_params(self, file_name ="params.txt"):
+        with open(os.path.join(self['root_dir'], file_name), 'w') as f:
+            lines = []
+            
+            for key, value in self._params.items():
+                if isinstance(value, str):
+                    lines.append('{} = "{}"'.format(key, value))
+                else:
+                    lines.append('{} = {}'.format(key, value))
+
+            # states information
+            lines.append("-"*100)
+
+            lines.append("Total State number = {}".format(self.states.total_states_num))
+            lines.append("Total Class number = {}".format(self.states.total_class_num))
+            for idx, state in enumerate(self.states.states.values()):
+                lines.append("State {}:".format(idx))
+                lines.append("\tNew class number = {}".format(state['num_new_class']))
+                lines.append("\tKnowing class number = {}".format(state['num_knowing_class']))
+                lines.append("\tNew class:")
+                lines.append("\t\tName = {}".format(state['new_class']['name']))
+
+                ids = self.states.coco.catName_to_id(state['new_class']['name'], sort=False)
+                lines.append("\t\tId = {}".format(ids))
+                ids.sort()
+                lines.append("\t\tSorted_Id = {}".format(ids))
+            
+            f.write('\n'.join(lines) + '\n')
+                
+            
 
 
         

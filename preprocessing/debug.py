@@ -1,5 +1,5 @@
 DEBUG_FLAG = True
 
-def debug_print(**kwargs):
+def debug_print(info:str):
     if DEBUG_FLAG:
-        print(**kwargs)
+        print(info)

@@ -29,14 +29,16 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
 def create_IL_trainer(params:Params):
+    start_state = params['start_state']
+    start_epoch = params['start_epoch']
     # Training dataloader
     dataset_train = IL_dataset(params,
                                transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]),
-                               start_state=params['start_state'],
+                               start_state=start_state,
                                use_data_ratio = params['use_data_ratio'])
 
-    # Create the model                           
-    retinanet = create_retinanet(params['depth'], params.states['start_state']['num_knowing_class'])
+    # Create the model
+    retinanet = create_retinanet(params['depth'], params.states[start_state]['num_knowing_class'])
     retinanet = retinanet.cuda()
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
@@ -44,14 +46,14 @@ def create_IL_trainer(params:Params):
     #loss_hist = collections.deque(maxlen=500)
     
     # Read checkpoint
-    if params['start_state'] != 0 or params['start_epoch'] != 1:
-        if params['start_epoch'] == 1:
-            params.read_checkpoint(params['start_state'] - 1, retinanet, optimizer, scheduler)
+    if start_state != 0 or start_epoch != 1:
+        if start_epoch == 1:
+            params.load_model(start_state - 1,-1,retinanet, optimizer, scheduler)
         else:
-            params.read_checkpoint(params['start_state'], retinanet, optimizer, scheduler)
+            params.load_model(start_state,start_epoch - 1,retinanet, optimizer, scheduler)
     
     # IL_Trainer
-    trainer = IL_Trainer(Params,
+    trainer = IL_Trainer(params,
                             model=retinanet,
                             optimizer=optimizer,
                             scheduler=scheduler,
@@ -62,6 +64,7 @@ def create_IL_trainer(params:Params):
 def get_parser(args=None):
     parser = argparse.ArgumentParser()
     # must set params
+    parser.add_argument('--root_dir', help='the root dir for training', default=ROOT_DIR)
     parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
     parser.add_argument('--start_epoch', type=int)
     parser.add_argument('--end_epoch', help='Number of epochs', type=int)
@@ -79,7 +82,7 @@ def get_parser(args=None):
     parser.add_argument('--distill_logits_on', help='whether distillation loss use logits on new class or old class,two option:"new" or ""old default = new', default="new")
     parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
 
-    parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd', type=int, default=2)
+    parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd, 0 mean no sample, default = 0', type=int, default=0)
     parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','large_loss','custom'", default="custom")
 
     parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
@@ -110,14 +113,17 @@ def get_parser(args=None):
 
 def main(args=None):
     parser = get_parser(args)
-    params = Params(parser, ROOT_DIR)
+    params = Params(parser)
+    params.output_params()
     il_trainer = create_IL_trainer(params)
-
     # print training information
     if PRINT_INFO:
         print("Scenario:", params['scenario'])
         print("State from {} to {}".format(params['start_state'], params['end_state']))
+        print("States Information:".format(params['start_state'], params['end_state']))
+        print('-'*70)
         params.states.print_state_info()
+        print('-'*70)
         print("Start Training!")
         print('-'*70)
 

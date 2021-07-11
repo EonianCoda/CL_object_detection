@@ -438,23 +438,26 @@ class ResNet(nn.Module):
         debug_print("Add new neurons in classification Moddel output layers!")
         self.num_classes += num_new_classes
         self.classificationModel.next_state(num_new_classes)
-def create_retinanet(depth, num_classes, pretrained=True, **kwargs):
+
+def create_retinanet(depth:int, num_classes, pretrained=True, **kwargs):
     """Construct retinanet
         Args:
             depth: resnet's model depth
             num_classes: classification output layers's class num
             pretrained: whether resnet is pretrained, default = True
-    """
-    arch = {18:[2, 2, 2, 2],
-            34:[3, 4, 6, 3],
-            50:[3, 4, 6, 3],
-            101:[3, 4, 23, 3],
-            152:[3, 8, 36, 3]}
+    """ 
+    arch = {18:(BasicBlock,[2, 2, 2, 2]),
+            34:(BasicBlock,[3, 4, 6, 3]),
+            50:(Bottleneck,[3, 4, 6, 3]),
+            101:(Bottleneck,[3, 4, 23, 3]),
+            152:(Bottleneck,[3, 8, 36, 3])}
+
     if depth not in arch.keys():
         raise ValueError('Unsupported model depth, must be one of 18, 34, 50, 101, 152')
 
-    model = ResNet(num_classes, BasicBlock, arch[depth], **kwargs)
+    model_arch = arch[depth]
+    model = ResNet(num_classes, model_arch[0], model_arch[1], **kwargs)
     if pretrained:
-        model.load_state_dict(model_zoo.load_url(model_urls['resnet18'], model_dir='.'), strict=False)
+        model.load_state_dict(model_zoo.load_url(model_urls['resnet{}'.format(depth)], model_dir='.'), strict=False)
     return model
     

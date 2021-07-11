@@ -44,12 +44,11 @@ class IL_dataset(Dataset):
 
 
         # set annotation seen class
-        if "test" == self.data_split:
-            self.seen_class_id = []
-            self.seen_class_id.extend(self.states[self.cur_state]['knowing_class']['id'])
+        if self.data_split == "test":
+            self.seen_class_id = self.states[self.cur_state]['knowing_class']['id']
         else:
             self.seen_class_id = self.states[self.cur_state]['new_class']['id']
-       
+
         self.init_classes()
         self.update_imgIds()  #get this state's data
         
@@ -82,8 +81,8 @@ class IL_dataset(Dataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
-        img = self.coco.load_image(idx)
-        annot = self.coco.load_annotations(idx)
+        img = self.load_image(idx)
+        annot = self.load_annotations(idx)
         sample = {'img': img, 'annot': annot}
         if self.transform:
             sample = self.transform(sample)
@@ -336,7 +335,7 @@ class Resizer(object):
             scale = max_side / largest_side
 
         # resize the image with the computed scale
-        image = skimage.transform.resize(image, (int(state(rows*scale)), int(state((cols*scale)))))
+        image = skimage.transform.resize(image, (int(round(rows*scale)), int(round((cols*scale)))))
         rows, cols, cns = image.shape
 
         pad_w = 32 - rows%32

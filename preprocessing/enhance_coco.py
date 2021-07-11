@@ -66,15 +66,14 @@ class Enhance_COCO(COCO):
                 sort: whether the list which is returned is well-sorted, default = True
             Return: a list contains the indexs of category given
         """
-        if type(names) == str:
+        if isinstance(names, str):
             return [self.reverse_classes[names]]
 
         names = list(set(names))
-
+        
         ids = []
         for name in names:
             ids.append(self.reverse_classes[name])
-
         if sort:
             ids.sort()
 

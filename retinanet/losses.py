@@ -88,10 +88,10 @@ class FocalLoss(nn.Module):
             IoU_max, IoU_argmax = torch.max(IoU, dim=1) # shape=(num_anchors x 1)
             
             # compute the loss for classification
-            targets = torch.ones(classification.shape) * -1
+            targets = torch.ones(classification.shape, device=torch.device('cuda:0')) * -1
 
-            if torch.cuda.is_available():
-                targets = targets.cuda()
+            # if torch.cuda.is_available():
+            #     targets = targets.cuda()
             
             positive_indices = torch.ge(IoU_max, 0.5)
 
@@ -114,7 +114,8 @@ class FocalLoss(nn.Module):
             
             
             if torch.cuda.is_available():
-                alpha_factor = torch.ones(targets.shape).cuda() * alpha
+                alpha_factor = torch.ones(targets.shape , device=torch.device('cuda:0')) * alpha
+                # alpha_factor = torch.ones(targets.shape).cuda() * alpha
             else: 
                 alpha_factor = torch.ones(targets.shape) * alpha
             
@@ -147,7 +148,7 @@ class FocalLoss(nn.Module):
             #     cls_loss[:,pre_class_num:] *= 2
                 
             if torch.cuda.is_available():
-                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape).cuda())
+                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape, device=torch.device('cuda:0')))
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
@@ -180,7 +181,8 @@ class FocalLoss(nn.Module):
                 targets = targets.t()
 
                 if torch.cuda.is_available():
-                    targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
+                    # targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
+                    targets = targets/ torch.cuda.FloatTensor([[0.1, 0.1, 0.2, 0.2]])
                 else:
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
@@ -209,7 +211,7 @@ class FocalLoss(nn.Module):
 
         return tuple(result)
 
-class IL_Loss(nn.Module):
+class IL_Loss():
     def __init__(self, il_trainer):
         
         self.model = il_trainer.model
