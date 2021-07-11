@@ -62,7 +62,8 @@ def create_IL_trainer(params:Params):
                             optimizer=optimizer,
                             scheduler=scheduler,
                             dataset_train=dataset_train)
-
+    if start_epoch == 1 and start_state != 0:
+        trainer.update_training_tools()
     return trainer
 
 def get_parser(args=None):

@@ -101,6 +101,7 @@ def train_process(il_trainer : IL_Trainer):
                 # Log epoch loss
                 epoch_loss.append(losses['total_loss'])
 
+            il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=epoch)
         il_trainer.next_state()
         

@@ -3,6 +3,7 @@ import collections
 import os
 import pickle
 # torch
+import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 # retinanet
@@ -29,7 +30,6 @@ class IL_Trainer(object):
         self.dataloader_train = None
         self.update_dataloader()
             
-        
         self.cur_state = self.params['start_state']
         
         # incremental tools
@@ -102,6 +102,7 @@ class IL_Trainer(object):
             return
         self.agem = A_GEM(self.model, self.dataset_replay, self.params)
 
+
     def update_mas(self):
         # set MAS penalty
         if not self.params['mas']:
@@ -116,10 +117,15 @@ class IL_Trainer(object):
         if not self.mas.load_importance(mas_file):
             self.mas.calculate_importance(self.dataloader_train)
 
+    def update_training_tools(self):
+        self.model.next_state(self.get_cur_state()['num_new_class'])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=1e-5)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
+
     def next_state(self):
         self.cur_state += 1
         self.update_mas()
-        self.model.next_state(self.get_cur_state()['num_new_class'])
+        self.update_training_tools()
         self.dataset_train.next_state()
         
         if self.dataset_replay !=None:
