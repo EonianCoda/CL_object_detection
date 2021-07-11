@@ -75,7 +75,7 @@ class IL_states(object):
             self.states[idx]['knowing_class']['name'].extend(self.states[idx - 1]['knowing_class']['name'])
             self.states[idx]['knowing_class']['name'].extend(self.states[idx]['new_class']['name'])
             self.states[idx]['knowing_class']['id'].extend(self.states[idx - 1]['knowing_class']['id'])
-            self.states[idx]['knowing_class']['id'].extend(self.states[idx - 1]['new_class']['id'])
+            self.states[idx]['knowing_class']['id'].extend(self.states[idx]['new_class']['id'])
 
         self.total_class_num = total_num
 
