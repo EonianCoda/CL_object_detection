@@ -103,8 +103,8 @@ class Params(object):
 
         self._params = parser
 
-        self['scenario_list'] = parser.scenario
-        self['scenario'] = "_".join([str(i) for i in parser.scenario])
+        self['scenario_list'] = parser['scenario']
+        self['scenario'] = "_".join([str(i) for i in parser['scenario']])
 
         if self['dataset'] == "voc2007":
             self['data_split'] = "trainval"
