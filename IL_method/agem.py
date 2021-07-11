@@ -1,7 +1,10 @@
 import torch
 
 from retinanet.dataloader import collater, AspectRatioBasedSampler
-from train.train import fast_zero_grad
+
+def fast_zero_grad(model):
+    for param in model.parameters():
+        param.grad = None
 
 class A_GEM(object):
     def __init__(self, model, replay_dataset, params):
