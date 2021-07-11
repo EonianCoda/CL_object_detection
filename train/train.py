@@ -32,14 +32,11 @@ def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
 
     
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
-
-        
         il_trainer.optimizer.step()
         il_trainer.loss_hist.append(float(loss))
         loss_info['total_loss'] = float(loss)
 
-        for key, value in losses.items():
-            del value
+        del losses
 
 
     return loss_info
