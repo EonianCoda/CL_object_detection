@@ -86,7 +86,7 @@ class Evaluator(Params):
             raise ValueError("{} not found!".format(pred_file))
 
         coco_true = self.dataset.coco
-        coco_pred = coco_true.loadRes()
+        coco_pred = coco_true.loadRes(pred_file)
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
         coco_eval.params.imgIds = self.dataset.image_ids
