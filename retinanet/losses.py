@@ -80,7 +80,7 @@ class FocalLoss(nn.Module):
 
                     cls_loss = focal_weight * bce
                     classification_losses.append(cls_loss.sum())
-                    regression_losses.append(torch.tensor(0).float().cuda())
+                    regression_losses.append(torch.tensor(0).float())
                     
                 continue
 
@@ -93,9 +93,6 @@ class FocalLoss(nn.Module):
             # if torch.cuda.is_available():
             #     targets = targets.cuda()
             
-            positive_indices = torch.ge(IoU_max, 0.5)
-
-
             # whether ignore past class
             if not incremental_state or (incremental_state and not params['ignore_past_class']):
                 targets[torch.lt(IoU_max, 0.4), :] = 0
@@ -106,6 +103,7 @@ class FocalLoss(nn.Module):
                 if params['ignore_ground_truth']:
                     non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).reshape(1,-1)))
             
+            positive_indices = torch.ge(IoU_max, 0.5) 
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
 

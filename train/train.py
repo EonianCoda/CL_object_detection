@@ -100,6 +100,8 @@ def train_process(il_trainer : IL_Trainer):
 
             il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=epoch)
+            il_trainer.params.auto_delete(cur_state, epoch)
+            
         il_trainer.next_state()
         
         
