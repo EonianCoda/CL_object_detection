@@ -1,4 +1,3 @@
-from _typeshed import Self
 from recorder import Recorder
 import torch
 import time
