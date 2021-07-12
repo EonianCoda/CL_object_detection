@@ -1,3 +1,4 @@
+import collections
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
 
@@ -221,6 +222,7 @@ class Params(object):
                 optimizer: a torch optimizer
                 scheduler: a torch scheduler
         """
+        
         if state < 0:
             raise ValueError("State{} doesn't exist".format(state))
 
@@ -232,7 +234,9 @@ class Params(object):
         if scheduler != None:
             scheduler.load_state_dict(ckp['scheduler_state_dict'])
         if scheduler != None:
-            loss_hist = ckp['loss_hist']
+            # compatible to old checkpoint
+            if ckp.get('loss_hist'):
+                loss_hist = ckp['loss_hist']
 
     def save_checkpoint(self, state:int, epoch:int, model, optimizer=None, scheduler=None, loss_hist=None, epoch_loss=None):
         """ save checkpoint
