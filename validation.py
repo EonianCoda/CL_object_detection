@@ -55,7 +55,8 @@ class Evaluator(Params):
     def __init__(self, parser:argparse):
         super().__init__(parser, "test")
         self.model = None
-
+        self.init_dataset()
+        self.init_model()
     def do_evalation(self, ignore_other_img=False):
         """do model predict
         Args:
