@@ -11,7 +11,6 @@ from torchvision import transforms
 from retinanet import model
 # pycocotools
 from pycocotools.cocoeval import COCOeval
-from pycocotools.coco import COCO
 
 # retinanet
 from retinanet.dataloader import IL_dataset, Resizer, Normalizer
@@ -124,7 +123,8 @@ class Evaluator(Params):
             results = []
             image_ids = []
 
-            for index in tqdm(range(len(self.dataset))):
+            #for index in tqdm(range(len(self.dataset))):
+            for index in range(len(self.dataset)):
                 data = self.dataset[index]
                 scale = data['scale']
 

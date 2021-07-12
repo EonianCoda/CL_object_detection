@@ -3,7 +3,8 @@ import argparse
 # torch
 import torch
 from evaluator import Evaluator
-from concurrent.futures import ThreadPoolExecutor
+from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
@@ -49,11 +50,16 @@ def main(args=None):
     def evaluation(epoch):
         evaluator.do_predict(epoch)
         evaluator.do_evaluation(epoch)
+        return True
 
-    executor = ThreadPoolExecutor(max_workers = 4)
+    epochs = parser['epoch']
 
-    for epoch in parser['epoch']:
-        executor.submit(evaluation, epoch)
+    print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
+    with tqdm(total=len(epochs)) as pbar:
+        with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
+            futures = [ex.submit(evaluation, epoch) for epoch in epochs]
+            for _ in as_completed(futures):
+                pbar.update(1)
 
 
 if __name__ == '__main__':
