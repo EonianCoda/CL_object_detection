@@ -109,6 +109,7 @@ class Params(object):
         self['scenario_list'] = parser['scenario']
         self['scenario'] = "_".join([str(i) for i in parser['scenario']])
 
+        # init datasplit
         if specific_data_split == None:
             if self['dataset'] == "voc2007":
                 self['data_split'] = "trainval"
@@ -125,11 +126,12 @@ class Params(object):
         self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/model/15_1", "root_dir/model/20"
         self['data_path'] = os.path.join(self['root_dir'], 'dataset', self['dataset']) # the training data path
 
-        # init warmup setting
-        self.init_warmup()
         # init states for scenario
         coco_path = os.path.join(self['data_path'], 'annotations', '{}_{}.json'.format(self['dataset'], self['data_split']))
         self.states = IL_states(coco_path, self['scenario_list'], self['shuffle_class'])
+
+        # init warmup setting
+        self.init_warmup()
 
     def __setitem__(self, key, value):
         self._params[key] = value

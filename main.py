@@ -80,6 +80,12 @@ def get_parser(args=None):
     # retinanet params
     parser.add_argument('--alpha', type=float, default=DEFAULT_ALPHA)
     parser.add_argument('--gamma', type=float, default=DEFAULT_GAMMA)
+    
+    # Warm up
+    parser.add_argument('--warm_stage', help='the number of warm-up stage, 0 mean not warm up, default = 0', type=int, default=0)
+    parser.add_argument('--warm_epoch', help='the number of epoch for each warm-up stage, use " "(space) to split epoch for different stage', type=int, nargs='*', default=[10,10])
+    parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
+
     # IL params 
     parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
     parser.add_argument('--shuffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
@@ -98,9 +104,6 @@ def get_parser(args=None):
     parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     # parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)
 
-    parser.add_argument('--warm_stage', help='the number of warm-up stage, 0 mean not warm up, default = 0', type=int, default=0)
-    parser.add_argument('--warm_epoch', help='the number of epoch for each warm-up stage, use " "(space) to split epoch for different stage', type=int, nargs='*', default=[10,10])
-    parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
 
     # IL experimental params
     parser.add_argument('--ignore_ground_truth', help='whether ignore ground truth, default = False',type=str2bool , default=False)
