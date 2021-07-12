@@ -1,3 +1,4 @@
+from numpy.lib.function_base import average
 import torch
 import time
 import numpy as np
@@ -52,7 +53,7 @@ def train_process(il_trainer : IL_Trainer):
     # init IL loss
     il_loss = IL_Loss(il_trainer)
 
-
+    
     for cur_state in range(start_state, end_state  + 1):
         print("State: {}".format(cur_state))
         print("Train epoch from {} to {}".format(start_epoch, end_epoch))
@@ -65,7 +66,11 @@ def train_process(il_trainer : IL_Trainer):
             end_epoch = il_trainer.params.params['new_state_epoch']
         
         for epoch in range(start_epoch, end_epoch + 1):
+            # Some Log 
+            avg_times = []
             epoch_loss = []
+
+            # Model setting
             il_trainer.model.train()
             il_trainer.warm_up(epoch=epoch)
             il_trainer.model.freeze_bn()
@@ -100,13 +105,20 @@ def train_process(il_trainer : IL_Trainer):
                 info.extend([np.mean(il_trainer.loss_hist), end - start])
                 print(output.format(info))
 
-                # Log epoch loss
+                
+                # Log
                 epoch_loss.append(losses['total_loss'])
+                avg_times.append(end - start)
 
             il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=epoch)
             il_trainer.params.auto_delete(cur_state, epoch)
 
+            # Compute remaining training time
+            avg_times = sum(avg_times)
+            avg_times = avg_times * (end_epoch - epoch)
+            avg_times = (int(avg_times / 60), int(avg_times) % 60)
+            print("Estimated Training Time for this state is {}m{}s".format(avg_times[0],avg_times[1]))
 
         if cur_state != end_state:
             il_trainer.next_state()
