@@ -3,7 +3,7 @@ import argparse
 # torch
 import torch
 from evaluator import Evaluator
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -50,13 +50,11 @@ def main(args=None):
     def evaluation(epoch, pbar=None):
         evaluator.do_predict(epoch, pbar)
         evaluator.do_evaluation(epoch)
-        return True
 
     epochs = parser['epoch']
 
     print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
 
-    
     with tqdm(total=len(evaluator.dataset) * len(epochs)) as pbar:
         with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
             for epoch in epochs:

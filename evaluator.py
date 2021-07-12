@@ -8,7 +8,6 @@ import numpy as np
 # torch
 import torch
 from torchvision import transforms
-from retinanet import model
 # pycocotools
 from pycocotools.cocoeval import COCOeval
 
@@ -124,7 +123,7 @@ class Evaluator(Params):
             image_ids = []
 
 
-            if pbar == None:
+            if pbar:
                 iterator_ = tqdm(range(len(self.dataset)))
             else:
                 iterator_ = range(len(self.dataset))
@@ -175,7 +174,7 @@ class Evaluator(Params):
                 # append image to list of processed images
                 image_ids.append(self.dataset.image_ids[index])
                 
-                if pbar != None:
+                if pbar:
                     pbar.update(1)
 
             if not len(results):
