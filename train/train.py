@@ -37,8 +37,6 @@ def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
         loss_info['total_loss'] = float(loss)
 
         del losses
-
-    print(loss_info)
     return loss_info
 
 def train_process(il_trainer : IL_Trainer):
