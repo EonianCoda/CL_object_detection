@@ -47,7 +47,7 @@ def train_process(il_trainer : IL_Trainer):
     start_epoch = il_trainer.params['start_epoch']
     end_epoch = il_trainer.params['end_epoch']
     # Init Recorder
-    recorder = Recorder()
+    recorder = Recorder(il_trainer)
 
     if end_state < start_state:
         end_state = start_state

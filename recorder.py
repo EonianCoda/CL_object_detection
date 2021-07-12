@@ -13,6 +13,7 @@ class Recorder(object):
         self.il_trainer = il_trainer
         # create runs dir
         self.root_path = os.path.join(self.il_trainer.params['root_dir'], 'runs')
+        create_dir(self.root_path)
         self.writer = None
         self.cur_state = il_trainer.cur_state
         self.iteration = 0
