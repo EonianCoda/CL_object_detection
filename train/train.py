@@ -16,8 +16,8 @@ def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
         Args:
         Return: a dict, containing loss information
     """
-    with torch.cuda.amp.autocast():
-    #with torch.cuda.device(0):
+    # with torch.cuda.amp.autocast():
+    with torch.cuda.device(0):
         losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda())
 
         loss = torch.tensor(0).float().cuda()
