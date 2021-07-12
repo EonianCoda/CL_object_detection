@@ -132,8 +132,8 @@ class Evaluator(Params):
         if self.collect_result:
             empty_result = copy.deepcopy(DEFAULT_RESULT)
             for idx in range(len(precision_result)):
-                empty_result['precision'] = precision_result[idx]
-                empty_result['recall'] = recall_result[idx]
+                empty_result['precision'].append(precision_result[idx][1])
+                empty_result['recall'].append(recall_result[idx][1])
             self.results[epoch] = empty_result
 
     def init_dataset(self):
