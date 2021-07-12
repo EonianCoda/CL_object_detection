@@ -83,7 +83,7 @@ def train_process(il_trainer : IL_Trainer):
                 
                 # Print Iteration Information
                 info = [epoch, iter_num]
-                output = 'Epoch: {0[0]} | Iteration: {0[1]}'
+                output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
                 for key, value in losses.items():
                     output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
                     info.extend([key, value])

@@ -293,16 +293,18 @@ class ResNet(nn.Module):
             return True
         
         for name, p in self.named_parameters():
-            if keyword_check(name, white_list):
-                p.requires_grad = False
+            if "bn" not in name:
+                if keyword_check(name, white_list):
+                    p.requires_grad = False
         self.freeze_bn()
 
     def unfreeze_layers(self):
         """unfreeze all layers, except batch normalization layer
         """
         debug_print("Unfreeze all layers!")
-        for p in self.parameters():
-            p.requires_grad = True
+        for name, p in self.named_parameters():
+            if "bn" not in name:
+                p.requires_grad = True
         self.freeze_bn()
   
     def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):

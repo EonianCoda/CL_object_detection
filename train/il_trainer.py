@@ -18,7 +18,7 @@ from IL_method.agem import A_GEM
 
 
 class IL_Trainer(object):
-    def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset):
+    def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset, loss_hist=None):
         self.params = params
  
         # training setting
@@ -26,7 +26,10 @@ class IL_Trainer(object):
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.dataset_train = dataset_train
-        self.loss_hist = collections.deque(maxlen=500)
+        if loss_hist == None:
+            self.loss_hist = collections.deque(maxlen=500)
+        else:
+            self.loss_hist = loss_hist
         self.dataloader_train = None
         self.update_dataloader()
             

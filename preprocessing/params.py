@@ -205,7 +205,7 @@ class Params(object):
         debug_print('Load checkpoint at state{} Epoch{}'.format(state, epoch)) 
         return torch.load(self.get_ckp_path(state, epoch))
        
-    def load_model(self, state:int, epoch:int, model, optimizer = None, scheduler = None):
+    def load_model(self, state:int, epoch:int, model, optimizer = None, scheduler = None, loss_hist = None):
         """read checkpoint
 
             Args:
@@ -225,6 +225,8 @@ class Params(object):
             optimizer.load_state_dict(ckp['optimizer_state_dict'])
         if scheduler != None:
             scheduler.load_state_dict(ckp['scheduler_state_dict'])
+        if scheduler != None:
+            loss_hist = ckp['loss_hist']
 
     def save_checkpoint(self, state:int, epoch:int, model, optimizer=None, scheduler=None, loss_hist=None, epoch_loss=None):
         """ save checkpoint
@@ -242,6 +244,28 @@ class Params(object):
             data['epoch_loss'] = epoch_loss
             
         torch.save(data, save_path)
+
+    def print_il_info(self):
+        keyword = ['distill', 
+            'sample', 
+            'mas', 
+            'warm',
+            'enhance',
+            'ignore',
+            'decrease_positive']
+        def keyword_check(name:str):
+            for word in keyword:
+                if word in name:
+                    return True
+            return False
+
+        for key, value in self._params.items():
+            if keyword_check(key):
+                if isinstance(value, str):
+                    print('{} = "{}"'.format(key, value))
+                else:
+                    print('{} = {}'.format(key, value))
+
     def output_params(self, file_name ="params.txt"):
         with open(os.path.join(self['root_dir'], file_name), 'w') as f:
             lines = []

@@ -1,4 +1,5 @@
 import argparse
+import collections
 # torch 
 import torch
 import torch.optim as optim
@@ -47,21 +48,22 @@ def create_IL_trainer(params:Params):
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
-    #loss_hist = collections.deque(maxlen=500)
+    loss_hist = collections.deque(maxlen=500)
     
     # Read checkpoint
     if start_state != 0 or start_epoch != 1:
         if start_epoch == 1:
-            params.load_model(start_state - 1,-1,retinanet, optimizer, scheduler)
+            params.load_model(start_state - 1,-1,retinanet, optimizer, scheduler, loss_hist)
         else:
-            params.load_model(start_state,start_epoch - 1,retinanet, optimizer, scheduler)
+            params.load_model(start_state,start_epoch - 1,retinanet, optimizer, scheduler, loss_hist)
     
     # IL_Trainer
     trainer = IL_Trainer(params,
                             model=retinanet,
                             optimizer=optimizer,
                             scheduler=scheduler,
-                            dataset_train=dataset_train)
+                            dataset_train=dataset_train,
+                            loss_hist=loss_hist)
     if start_epoch == 1 and start_state != 0:
         trainer.update_training_tools()
     return trainer
@@ -108,6 +110,7 @@ def get_parser(args=None):
 
 
     # always default paras
+    parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
@@ -133,6 +136,8 @@ def main(args=None):
         print("Start Training!")
         print('-'*70)
 
+    if params['print_il_info']:
+        params.print_il_info()
     train_process(il_trainer)
 
         
