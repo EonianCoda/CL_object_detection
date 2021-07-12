@@ -15,7 +15,7 @@ import skimage.color
 import skimage
 import pickle
 
-from preprocessing.debug import debug_print
+from preprocessing.debug import debug_print, DEBUG_FLAG
 
 
 class IL_dataset(Dataset):

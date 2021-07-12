@@ -11,7 +11,7 @@ from retinanet.dataloader import AspectRatioBasedSampler, IL_dataset, Replay_dat
 from retinanet.model import create_retinanet
 # traing util
 from preprocessing.params import Params
-from preprocessing.debug import debug_print
+from preprocessing.debug import debug_print, DEBUG_FLAG
 # IL
 from IL_method.mas import MAS
 from IL_method.agem import A_GEM

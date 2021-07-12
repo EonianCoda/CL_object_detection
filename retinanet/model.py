@@ -8,7 +8,7 @@ from retinanet import losses
 from retinanet.utils import BasicBlock, Bottleneck, BBoxTransform, ClipBoxes
 from retinanet.anchors import Anchors
 
-from preprocessing.debug import debug_print
+from preprocessing.debug import debug_print, DEBUG_FLAG
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',

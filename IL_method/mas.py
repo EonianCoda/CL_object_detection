@@ -1,7 +1,7 @@
 import pickle
 import os
 import torch
-from preprocessing.debug import debug_print
+from preprocessing.debug import debug_print, DEBUG_FLAG
 
 class MAS(object):
     def __init__(self, model, params):

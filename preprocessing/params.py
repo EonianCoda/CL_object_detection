@@ -1,4 +1,4 @@
-from preprocessing.debug import debug_print
+from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
 
 import os
