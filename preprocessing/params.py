@@ -129,7 +129,7 @@ class Params(object):
         self.init_warmup()
         # init states for scenario
         coco_path = os.path.join(self['data_path'], 'annotations', '{}_{}.json'.format(self['dataset'], self['data_split']))
-        self.states = IL_states(coco_path, self['scenario_list'], self['suffle_class'])
+        self.states = IL_states(coco_path, self['scenario_list'], self['shuffle_class'])
 
     def __setitem__(self, key, value):
         self._params[key] = value

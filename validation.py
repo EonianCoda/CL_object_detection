@@ -47,7 +47,7 @@ def get_val_parser(args=None):
     parser = vars(parser.parse_args(args))
     # set for origin Parmas, otherwise it will have error
     parser['warm_stage'] = 0
-    parser['shffle_class'] = False
+    parser['shuffle_class'] = False
     return parser
 
 
