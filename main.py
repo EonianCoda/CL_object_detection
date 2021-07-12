@@ -113,6 +113,7 @@ def get_parser(args=None):
 
 
     # always default paras
+    parser.add_argument('--record', help='whether record training with tensorboard default=True', type=str2bool, default=True)
     parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)

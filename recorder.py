@@ -26,7 +26,7 @@ class Recorder(object):
             del self.writer
         now = datetime.now().strftime("%Y-%m-%d-%H-%M")
 
-        logdir = os.path.join(self.root_path, now + self.il_trainer.params['scenario'])
+        logdir = os.path.join(self.root_path, now + '_' +self.il_trainer.params['scenario'])
 
         self.writer = SummaryWriter(logdir)
     

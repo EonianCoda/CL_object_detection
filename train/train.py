@@ -1,3 +1,4 @@
+from _typeshed import Self
 from recorder import Recorder
 import torch
 import time
@@ -47,7 +48,8 @@ def train_process(il_trainer : IL_Trainer):
     start_epoch = il_trainer.params['start_epoch']
     end_epoch = il_trainer.params['end_epoch']
     # Init Recorder
-    recorder = Recorder(il_trainer)
+    if il_trainer.params['record']:
+        recorder = Recorder(il_trainer)
 
     if end_state < start_state:
         end_state = start_state
@@ -110,14 +112,16 @@ def train_process(il_trainer : IL_Trainer):
                 # Iteration Log
                 epoch_loss.append(losses['total_loss'])
                 avg_times.append(end - start)
-                recorder.add_iter_loss(losses)
+                if il_trainer.params['record']:
+                    recorder.add_iter_loss(losses)
 
             il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
             il_trainer.params.auto_delete(cur_state, cur_epoch)
 
             # Epoch Log
-            recorder.record_epoch_loss(cur_epoch)
+            if il_trainer.params['record']:
+                recorder.record_epoch_loss(cur_epoch)
 
             # Compute remaining training time
             avg_times = sum(avg_times)
@@ -128,7 +132,9 @@ def train_process(il_trainer : IL_Trainer):
         
         if cur_state != end_state:
             il_trainer.next_state()
-            recorder.next_state()
-    recorder.end_write()
+            if il_trainer.params['record']:
+                recorder.next_state()
+    if il_trainer.params['record']:
+        recorder.end_write()
         
         
