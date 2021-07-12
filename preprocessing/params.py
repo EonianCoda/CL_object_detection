@@ -97,10 +97,11 @@ class IL_states(object):
             print("\t Id = ", self.coco.catName_to_id(state['new_class']['name']))
 
 class Params(object):
-    def __init__(self, parser:dict):
+    def __init__(self, parser:dict, specific_data_split = None):
         """ Parse information from parser, and provide some helpful function
             Args:
                 parser: dict
+                specific_data_split: for validation , default = None
         """
 
         self._params = parser
@@ -108,10 +109,13 @@ class Params(object):
         self['scenario_list'] = parser['scenario']
         self['scenario'] = "_".join([str(i) for i in parser['scenario']])
 
-        if self['dataset'] == "voc2007":
-            self['data_split'] = "trainval"
-        else: # for voc2012
-            self['data_split'] = "train"
+        if specific_data_split == None:
+            if self['dataset'] == "voc2007":
+                self['data_split'] = "trainval"
+            else: # for voc2012
+                self['data_split'] = "train"
+        else:
+            self['data_split'] = specific_data_split
 
         # init path and directory
         ckp_path = os.path.join(self['root_dir'], 'model')

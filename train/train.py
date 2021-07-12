@@ -40,24 +40,31 @@ def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
     return loss_info
 
 def train_process(il_trainer : IL_Trainer):
-    params = il_trainer.params
+    # init training info
+    start_state = il_trainer.params['start_state']
+    end_state = il_trainer.params['end_state']
+    start_epoch = il_trainer.params['start_epoch']
+    end_epoch = il_trainer.params['end_epoch']
 
+    if end_state < start_state:
+        end_state = start_state
+
+    # init IL loss
     il_loss = IL_Loss(il_trainer)
-    for cur_state in range(params['start_state'], params['end_state'] + 1):
+
+
+    for cur_state in range(start_state, end_state  + 1):
         print("State: {}".format(cur_state))
-        print("Train epoch from {} to {}".format(params['start_epoch'], params['end_epoch']))
+        print("Train epoch from {} to {}".format(start_epoch, end_epoch))
         print('Num training images: {}'.format(len(il_trainer.dataset_train)))
         print('Iteration_num: ',len(il_trainer.dataloader_train))
 
         # when next round, reset start epoch
-        if cur_state != params['start_state']:
+        if cur_state != start_state:
             start_epoch = 1
-            end_epoch = params['new_state_epoch']
-        else:
-            start_epoch = params['start_epoch']
-            end_epoch = params['end_epoch']
+            end_epoch = il_trainer.params.params['new_state_epoch']
         
-        for epoch in range(start_epoch, end_epoch):
+        for epoch in range(start_epoch, end_epoch + 1):
             epoch_loss = []
             il_trainer.model.train()
             il_trainer.warm_up(epoch=epoch)
@@ -99,7 +106,9 @@ def train_process(il_trainer : IL_Trainer):
             il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=epoch)
             il_trainer.params.auto_delete(cur_state, epoch)
-            
-        il_trainer.next_state()
+
+
+        if cur_state != end_state:
+            il_trainer.next_state()
         
         
