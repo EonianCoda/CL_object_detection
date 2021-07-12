@@ -3,7 +3,7 @@ import argparse
 # torch
 import torch
 from evaluator import Evaluator
-
+from concurrent.futures import ThreadPoolExecutor
 
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
@@ -25,7 +25,7 @@ def get_val_parser(args=None):
     # must set params
     
     parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
-    parser.add_argument('--epoch', help='the index of validation epochs', type=int)
+    parser.add_argument('--epoch', help='the index of validation epochs', nargs='+', type=int)
     parser.add_argument('--state', type=int)
     parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
@@ -39,11 +39,22 @@ def get_val_parser(args=None):
     parser['shuffle_class'] = False
     return parser
 
+
+
+
 def main(args=None):
     parser = get_val_parser(args)
     evaluator = Evaluator(parser)
-    evaluator.do_predict()
-    evaluator.do_evaluation()
+
+    def evaluation(epoch):
+        evaluator.do_predict(epoch)
+        evaluator.do_evaluation(epoch)
+
+    executor = ThreadPoolExecutor(max_workers = 4)
+
+    for epoch in parser['epoch']:
+        executor.submit(evaluation, epoch)
+
 
 if __name__ == '__main__':
     assert torch.__version__.split('.')[0] == '1'
