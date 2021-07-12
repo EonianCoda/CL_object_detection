@@ -30,6 +30,8 @@ def get_val_parser(args=None):
     parser.add_argument('--state', type=int)
     parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
+    parser.add_argument('--just_val', help='whether predict or not',type=str2bool, default=False)
+    parser.add_argument('--output_csv', help='whether output the csv file, default = True', type=str2bool, default=True)
 
     # always fixed
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=DEFAULT_DEPTH)
@@ -51,15 +53,20 @@ def main(args=None):
         evaluator.do_predict(epoch, pbar)
         evaluator.do_evaluation(epoch)
 
-    epochs = parser['epoch']
+    epochs = list(set(parser['epoch']))
 
     print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
 
-    with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
-        with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
-            for epoch in epochs:
-                ex.submit(evaluation, epoch, pbar)
-
+    if parser['just_val']:
+        for epoch in epochs:
+            evaluator.do_evaluation(epoch)
+    else:
+        with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
+            with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
+                for epoch in epochs:
+                    ex.submit(evaluation, epoch, pbar)
+    if parser['output_csv']:
+        evaluator.output_csv_file()
 
 if __name__ == '__main__':
     assert torch.__version__.split('.')[0] == '1'

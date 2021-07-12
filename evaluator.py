@@ -1,5 +1,6 @@
 # built-in
 import argparse
+import copy
 from tqdm import tqdm
 import os
 import json
@@ -16,16 +17,50 @@ from retinanet.dataloader import IL_dataset, Resizer, Normalizer
 from retinanet.model import create_retinanet
 from preprocessing.params import Params, create_dir
 
+DEFAULT_RESULT = {'precision':[], 'recall':[]}
 
 class Evaluator(Params):
     def __init__(self, parser:argparse):
         super().__init__(parser, "test")
         self.model = None
         self.init_dataset()
-
-    # def output_evaluation_file(self, precsion:dict, recall:dict):
-    #     cat_names = [name for name in precsion.keys()]
+        self.results = {}
+        self.collect_result = self['output_csv']
         
+    def output_csv_file(self):
+        if self.results == {}:
+            return
+
+        cat_names = sorted(self.dataset.coco.reverse_classes)
+        epochs = [epoch for epoch in self.results.keys()]
+        epochs.sort()
+        cat_num = len(self.dataset.seen_class_id)
+
+        lines = []
+        line = ''
+        # Intro
+        line = 'Epoch'
+        for epoch in epochs:
+            line += ',{},{}'.format(epoch, epoch)
+        lines.append(line)
+        line = ''
+        for _ in epochs:
+            line += ',AP,Recall'
+        lines.append(line)
+        # result
+        for idx in range(cat_num):
+            line = cat_names[idx]
+            for epoch in epochs:
+                line += ',{},{}'.format(self.results[epoch]['precision'][idx], self.results[epoch]['recall'][idx])
+            lines.append(line)
+
+        lines = '\n'.join(lines)
+        file_name = 'val_result_' + '_'.join(epochs) + '.csv'
+        file_path = self.get_result_path(-1)
+        with open(os.path.join(file_path, file_name), 'w') as f:
+            f.write(lines)
+
+
     def get_model(self, epoch=None):
         """
             Args:
@@ -38,6 +73,7 @@ class Evaluator(Params):
         self.load_model(self['state'], epoch, model)
         return model
 
+    
     def do_evaluation(self, epoch:int, ignore_other_img=False):
         """do model predict
         Args:
@@ -45,8 +81,12 @@ class Evaluator(Params):
         """
         # load results in COCO evaluation tool
 
+        pred_file = self.get_result_path(epoch)
+        if not os.path.isfile(pred_file):
+            raise ValueError("{} not found!".format(pred_file))
+
         coco_true = self.dataset.coco
-        coco_pred = coco_true.loadRes(self.get_result_path(epoch))
+        coco_pred = coco_true.loadRes()
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
         coco_eval.params.imgIds = self.dataset.image_ids
@@ -66,31 +106,45 @@ class Evaluator(Params):
             precision_result[class_name] = coco_eval.stats[1]
             recall_result[class_name] = coco_eval.stats[8]
             
+
+        precision_result = sorted(precision_result.items())
+        recall_result = sorted(recall_result.items())
         if len(self.dataset.seen_class_id) > 1:
             print("Precision:")
-            for name, ap in sorted(precision_result.items()):
+            for name, ap in precision_result:
                 print('{:<12} = {:0.2f}'.format(name, ap))
                 
             print("Recall:")
-            for name, ap in sorted(recall_result.items()):
+            for name, ap in recall_result:
                 print('{:<12} = {:0.2f}'.format(name, ap))
             
             print("-"*50)
             print('{:<12} = {:0.2f}'.format('MAP', np.mean([v for v in precision_result.values()])))
             print('{:<12} = {:0.2f}'.format('Average Recall', np.mean([v for v in recall_result.values()])))
             print("Precision:")
-            for name, ap in sorted(precision_result.items()):
+            for name, ap in precision_result:
                 print('{:0.2f}'.format(ap))
                 
             print("Recall:")
-            for name, ap in sorted(recall_result.items()):
+            for name, ap in recall_result:
                 print('{:0.2f}'.format(ap))
         
+        if self.collect_result:
+            empty_result = copy.deepcopy(DEFAULT_RESULT)
+            for idx in range(len(precision_result)):
+                empty_result['precision'] = precision_result[idx]
+                empty_result['recall'] = recall_result[idx]
+            self.results[epoch] = empty_result
+
     def init_dataset(self):
         self.dataset = IL_dataset(self,
                                 transform=transforms.Compose([Normalizer(), Resizer()]),
                                 start_state=self['state'])
     def get_result_path(self, epoch:int):
+        """
+            Args:
+                epoch: int, if epoch == -1, then only return  directory path
+        """
         # write output
         root_dir = self['root_dir']
         file_path = os.path.join(root_dir, 'val_result')
@@ -100,8 +154,11 @@ class Evaluator(Params):
         file_path = os.path.join(file_path, 'state{}'.format(self['state']))
         create_dir(file_path)
 
-        file_name = '{}_results_epoch{}.json'.format(self['dataset'], epoch)
-        return os.path.join(file_path, file_name)
+        if epoch != -1:
+            file_name = '{}_results_epoch{}.json'.format(self['dataset'], epoch)
+            return os.path.join(file_path, file_name)
+        else:
+            return file_path
 
     def do_predict(self, epoch=None, pbar=None):
         """do prediction
