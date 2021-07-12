@@ -124,9 +124,10 @@ class Evaluator(Params):
 
 
             if pbar:
-                iterator_ = tqdm(range(len(self.dataset)),position=0, leave=True)
-            else:
                 iterator_ = range(len(self.dataset))
+            else:
+                iterator_ = tqdm(range(len(self.dataset)),position=0, leave=True)
+                
 
             for index in iterator_:
 
