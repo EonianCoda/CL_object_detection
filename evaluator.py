@@ -55,7 +55,7 @@ class Evaluator(Params):
             lines.append(line)
 
         lines = '\n'.join(lines)
-        file_name = 'val_result_' + '_'.join(epochs) + '.csv'
+        file_name = 'val_result_' + '_'.join([str(epoch) for epoch in epochs]) + '.csv'
         file_path = self.get_result_path(-1)
         with open(os.path.join(file_path, file_name), 'w') as f:
             f.write(lines)
