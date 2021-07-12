@@ -35,14 +35,14 @@ class Recorder(object):
         self.iteration = 0
     
     def add_iter_loss(self, losses:dict):
-        for key, value in losses:
+        for key, value in losses.items():
             tag = 'Train_iter_loss/state{}/{}'.format(self.cur_state,key)
             self.writer.add_scalar(tag=tag,
                                     value=value, 
                                     global_step=self.iteration)
         self.iteration += 1
     def record_epoch_loss(self, epoch:int):
-        for key, value in self.losses:
+        for key, value in self.losses.items():
             tag = 'Train_epoch_loss/state{}/{}'.format(self.cur_state,key)
             self.writer.add_scalar(tag=tag,
                                     value=np.mean(value), 
