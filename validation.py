@@ -169,7 +169,7 @@ class Evaluator(Params):
                         box = boxes[box_id, :]
 
                         # scores are sorted, so we can break
-                        if score < self['thresold']:
+                        if score < self['threshold']:
                             continue
 
                         # append detection for each positively labeled class
