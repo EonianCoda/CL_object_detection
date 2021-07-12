@@ -1,16 +1,9 @@
 # built-in
 import argparse
-from tqdm import tqdm
-import os
-import json
-from collections import defaultdict
-import numpy as np
 # torch
 import torch
-from torchvision import transforms
-from retinanet import model
+from evaluator import Evaluator
 
-# retinanet
 
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
