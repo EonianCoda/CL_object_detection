@@ -107,28 +107,28 @@ class Evaluator(Params):
             recall_result[class_name] = coco_eval.stats[8]
             
 
-        precision_result = sorted(precision_result.items())
-        recall_result = sorted(recall_result.items())
         if len(self.dataset.seen_class_id) > 1:
             print("Precision:")
-            for name, ap in precision_result:
+            for name, ap in sorted(precision_result.items()):
                 print('{:<12} = {:0.2f}'.format(name, ap))
                 
             print("Recall:")
-            for name, ap in recall_result:
+            for name, ap in sorted(recall_result.items()):
                 print('{:<12} = {:0.2f}'.format(name, ap))
             
             print("-"*50)
             print('{:<12} = {:0.2f}'.format('MAP', np.mean([v for v in precision_result.values()])))
             print('{:<12} = {:0.2f}'.format('Average Recall', np.mean([v for v in recall_result.values()])))
             print("Precision:")
-            for name, ap in precision_result:
+            for name, ap in sorted(precision_result.items()):
                 print('{:0.2f}'.format(ap))
                 
             print("Recall:")
-            for name, ap in recall_result:
+            for name, ap in sorted(recall_result.items()):
                 print('{:0.2f}'.format(ap))
         
+        precision_result = sorted(precision_result.items())
+        recall_result = sorted(recall_result.items())
         if self.collect_result:
             empty_result = copy.deepcopy(DEFAULT_RESULT)
             for idx in range(len(precision_result)):
