@@ -1,4 +1,4 @@
-from numpy.lib.function_base import average
+from recorder import Recorder
 import torch
 import time
 import numpy as np
@@ -46,6 +46,8 @@ def train_process(il_trainer : IL_Trainer):
     end_state = il_trainer.params['end_state']
     start_epoch = il_trainer.params['start_epoch']
     end_epoch = il_trainer.params['end_epoch']
+    # Init Recorder
+    recorder = Recorder()
 
     if end_state < start_state:
         end_state = start_state
@@ -53,7 +55,6 @@ def train_process(il_trainer : IL_Trainer):
     # init IL loss
     il_loss = IL_Loss(il_trainer)
 
-    
     for cur_state in range(start_state, end_state  + 1):
         print("State: {}".format(cur_state))
         print("Train epoch from {} to {}".format(start_epoch, end_epoch))
@@ -65,14 +66,14 @@ def train_process(il_trainer : IL_Trainer):
             start_epoch = 1
             end_epoch = il_trainer.params.params['new_state_epoch']
         
-        for epoch in range(start_epoch, end_epoch + 1):
+        for cur_epoch in range(start_epoch, end_epoch + 1):
             # Some Log 
             avg_times = []
             epoch_loss = []
 
             # Model setting
             il_trainer.model.train()
-            il_trainer.warm_up(epoch=epoch)
+            il_trainer.warm_up(epoch=cur_epoch)
             il_trainer.model.freeze_bn()
 
             for iter_num, data in enumerate(il_trainer.dataloader_train):
@@ -94,7 +95,7 @@ def train_process(il_trainer : IL_Trainer):
                     continue
                 
                 # Print Iteration Information
-                info = [epoch, iter_num]
+                info = [cur_epoch, iter_num]
                 output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
                 for key, value in losses.items():
                     output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
@@ -106,21 +107,28 @@ def train_process(il_trainer : IL_Trainer):
                 print(output.format(info))
 
                 
-                # Log
+                # Iteration Log
                 epoch_loss.append(losses['total_loss'])
                 avg_times.append(end - start)
+                recorder.add_iter_loss(cur_state, losses)
 
             il_trainer.scheduler.step(np.mean(epoch_loss))
-            il_trainer.save_ckp(epoch_loss, epoch=epoch)
-            il_trainer.params.auto_delete(cur_state, epoch)
+            il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
+            il_trainer.params.auto_delete(cur_state, cur_epoch)
+
+            # Epoch Log
+            recorder.record_epoch_loss(cur_epoch)
 
             # Compute remaining training time
             avg_times = sum(avg_times)
-            avg_times = avg_times * (end_epoch - epoch)
+            avg_times = avg_times * (end_epoch - cur_epoch)
             avg_times = (int(avg_times / 60), int(avg_times) % 60)
             print("Estimated Training Time for this state is {}m{}s".format(avg_times[0],avg_times[1]))
 
+        
         if cur_state != end_state:
             il_trainer.next_state()
+            recorder.next_state()
+    recorder.end_write()
         
         
