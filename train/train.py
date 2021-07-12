@@ -110,7 +110,7 @@ def train_process(il_trainer : IL_Trainer):
                 # Iteration Log
                 epoch_loss.append(losses['total_loss'])
                 avg_times.append(end - start)
-                recorder.add_iter_loss(cur_state, losses)
+                recorder.add_iter_loss(losses)
 
             il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
