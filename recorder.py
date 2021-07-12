@@ -11,17 +11,22 @@ from datetime import datetime
 class Recorder(object):
     def __init__(self, il_trainer: IL_Trainer):
         self.il_trainer = il_trainer
+        self.writer = None
+
+        self.cur_state = il_trainer.cur_state
+        self.iteration = 0
+        self.losses = defaultdict(list)
+
         # create runs dir
         self.root_path = os.path.join(self.il_trainer.params['root_dir'], 'runs')
         create_dir(self.root_path)
-        self.writer = None
-        self.cur_state = il_trainer.cur_state
-        self.iteration = 0
+
+        self.enable_record = self.il_trainer.params['record']
         self.init_writer()
-        self.losses = defaultdict(list)
+        
 
     def init_writer(self):
-        if not self.il_trainer['record']:
+        if not self.enable_record:
             return
         if self.writer != None:
             self.writer.close()
@@ -33,13 +38,13 @@ class Recorder(object):
         self.writer = SummaryWriter(logdir)
     
     def next_state(self):
-        if not self.il_trainer['record']:
+        if not self.enable_record:
             return
         self.cur_state += 1
         self.iteration = 0
     
     def add_iter_loss(self, losses:dict):
-        if not self.il_trainer['record']:
+        if not self.enable_record:
             return
         for key, value in losses.items():
             tag = 'Train_iter_loss/state{}/{}'.format(self.cur_state,key)
@@ -49,7 +54,7 @@ class Recorder(object):
             self.losses[key].append(value)
         self.iteration += 1
     def record_epoch_loss(self, epoch:int):
-        if not self.il_trainer['record']:
+        if not self.enable_record:
             return
         for key, value in self.losses.items():
             tag = 'Train_epoch_loss/state{}/{}'.format(self.cur_state,key)
@@ -60,7 +65,7 @@ class Recorder(object):
         self.losses = defaultdict(list)
 
     def end_write(self):
-        if not self.il_trainer['record']:
+        if not self.enable_record:
             return
         self.writer.close()
 
