@@ -140,7 +140,9 @@ def main(args=None):
         print('-'*70)
 
     if params['print_il_info']:
+        print("Incremental learning Info:")
         params.print_il_info()
+        print('-'*70)
     train_process(il_trainer)
 
         
