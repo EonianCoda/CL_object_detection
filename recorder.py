@@ -21,6 +21,8 @@ class Recorder(object):
         self.losses = defaultdict(list)
 
     def init_writer(self):
+        if not self.il_trainer['record']:
+            return
         if self.writer != None:
             self.writer.close()
             del self.writer
@@ -31,17 +33,24 @@ class Recorder(object):
         self.writer = SummaryWriter(logdir)
     
     def next_state(self):
+        if not self.il_trainer['record']:
+            return
         self.cur_state += 1
         self.iteration = 0
     
     def add_iter_loss(self, losses:dict):
+        if not self.il_trainer['record']:
+            return
         for key, value in losses.items():
             tag = 'Train_iter_loss/state{}/{}'.format(self.cur_state,key)
             self.writer.add_scalar(tag=tag,
                                     scalar_value=value, 
                                     global_step=self.iteration)
+            self.losses[key].append(value)
         self.iteration += 1
     def record_epoch_loss(self, epoch:int):
+        if not self.il_trainer['record']:
+            return
         for key, value in self.losses.items():
             tag = 'Train_epoch_loss/state{}/{}'.format(self.cur_state,key)
             self.writer.add_scalar(tag=tag,
@@ -51,6 +60,8 @@ class Recorder(object):
         self.losses = defaultdict(list)
 
     def end_write(self):
+        if not self.il_trainer['record']:
+            return
         self.writer.close()
 
     
