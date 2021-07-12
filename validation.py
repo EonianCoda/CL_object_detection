@@ -1,6 +1,6 @@
 # built-in
 import argparse
-import tqdm
+from tqdm import tqdm
 import os
 import json
 from collections import defaultdict
