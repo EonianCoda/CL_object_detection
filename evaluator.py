@@ -104,7 +104,7 @@ class Evaluator(Params):
         file_name = '{}_results_epoch{}.json'.format(self['dataset'], epoch)
         return os.path.join(file_path, file_name)
 
-    def do_predict(self, epoch=None):
+    def do_predict(self, epoch=None, pbar=None):
         """do prediction
         
             Args:
@@ -123,8 +123,14 @@ class Evaluator(Params):
             results = []
             image_ids = []
 
-            #for index in tqdm(range(len(self.dataset))):
-            for index in range(len(self.dataset)):
+
+            if pbar == None:
+                iterator_ = tqdm(range(len(self.dataset)))
+            else:
+                iterator_ = range(len(self.dataset))
+
+            for index in iterator_:
+
                 data = self.dataset[index]
                 scale = data['scale']
 
@@ -168,7 +174,9 @@ class Evaluator(Params):
 
                 # append image to list of processed images
                 image_ids.append(self.dataset.image_ids[index])
-
+                
+                if pbar != None:
+                    pbar.update(1)
 
             if not len(results):
                 return

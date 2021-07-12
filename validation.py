@@ -47,19 +47,20 @@ def main(args=None):
     parser = get_val_parser(args)
     evaluator = Evaluator(parser)
 
-    def evaluation(epoch):
-        evaluator.do_predict(epoch)
+    def evaluation(epoch, pbar=None):
+        evaluator.do_predict(epoch, pbar)
         evaluator.do_evaluation(epoch)
         return True
 
     epochs = parser['epoch']
 
     print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
-    with tqdm(total=len(epochs)) as pbar:
+
+    
+    with tqdm(total=len(evaluator.dataset) * len(epochs)) as pbar:
         with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
-            futures = [ex.submit(evaluation, epoch) for epoch in epochs]
-            for _ in as_completed(futures):
-                pbar.update(1)
+            for epoch in epochs:
+                ex.submit(evaluation, epoch, pbar)
 
 
 if __name__ == '__main__':
