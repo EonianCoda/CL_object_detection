@@ -1,5 +1,7 @@
 DEBUG_FLAG = True
 
-def debug_print(info:str):
+def debug_print(*argv):
     if DEBUG_FLAG:
-        print(info)
+        for arg in argv:
+            print(arg, end=' ')
+        print('')
