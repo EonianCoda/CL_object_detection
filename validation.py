@@ -34,16 +34,16 @@ def str2bool(v):
 def get_val_parser(args=None):
     parser = argparse.ArgumentParser()
     # must set params
-    parser.add_argument('--root_dir', help='the root dir for training', default=ROOT_DIR)
+    
     parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
     parser.add_argument('--epoch', help='the index of validation epochs', type=int)
     parser.add_argument('--state', type=int)
     parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
-    
+
     # always fixed
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=DEFAULT_DEPTH)
-
+    parser.add_argument('--root_dir', help='the root dir for training', default=ROOT_DIR)
     parser = vars(parser.parse_args(args))
     # set for origin Parmas, otherwise it will have error
     parser['warm_stage'] = 0
@@ -55,8 +55,6 @@ class Evaluator(Params):
     def __init__(self, parser:argparse):
         super().__init__(parser, "test")
         self.model = None
-        self.cur_state = 
-        self.cur_epoch = None
 
     def do_evalation(self, ignore_other_img=False):
         """do model predict
