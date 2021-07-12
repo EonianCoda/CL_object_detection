@@ -53,6 +53,11 @@ class Evaluator(Params):
             for epoch in epochs:
                 line += ',{},{}'.format(self.results[epoch]['precision'][idx], self.results[epoch]['recall'][idx])
             lines.append(line)
+        # Mean
+        line = 'Mean'
+        for epoch in epochs:
+            line += ',{},{}'.format(np.mean(self.results[epoch]['precision']), np.mean(self.results[epoch]['recall']))
+        lines.append(line)
 
         lines = '\n'.join(lines)
         file_name = 'val_result_' + '_'.join([str(epoch) for epoch in epochs]) + '.csv'
