@@ -31,7 +31,7 @@ class Evaluator(Params):
         if self.results == {}:
             return
 
-        cat_names = sorted(self.dataset.coco.reverse_classes)
+        cat_names = self.states[self['state']]['knowing_class']['name']
         epochs = [epoch for epoch in self.results.keys()]
         epochs.sort()
         cat_num = len(self.dataset.seen_class_id)
