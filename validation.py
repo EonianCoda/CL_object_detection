@@ -56,11 +56,14 @@ def main(args=None):
     epochs = list(set(parser['epoch']))
 
     print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
-
+    
+    
     if parser['just_val']:
+        evaluator.validation_check(epochs)
         for epoch in epochs:
             evaluator.do_evaluation(epoch)
     else:
+        evaluator.evaluation_check(epochs)
         with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
             with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
                 for epoch in epochs:

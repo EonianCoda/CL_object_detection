@@ -78,7 +78,33 @@ class Evaluator(Params):
         self.load_model(self['state'], epoch, model)
         return model
 
-    
+    def evaluation_check(self, epochs):
+        """Before donig evaluation, check if the checkpoint file exists
+            Args:
+                epcohs: int or list, containing the indexs of epochs 
+        """
+        if isinstance(epochs, int):
+            epochs = [epochs]
+
+        for epoch in epochs:
+            ckp_file = self.get_ckp_path(self['state'], epoch)
+            if not os.path.isfile(ckp_file):
+                raise ValueError("{} is not found!".format(ckp_file))
+
+    def validation_check(self, epochs):
+        """Before doing validation, check if the result file exists
+            Args:
+                epcohs: int or list, containing the indexs of epochs 
+        """
+        if isinstance(epochs, int):
+            epochs = [epochs]
+
+        for epoch in epochs:
+            pred_file = self.get_result_path(epoch)
+            if not os.path.isfile(pred_file):
+                raise ValueError("{} is not found!".format(pred_file))
+
+
     def do_evaluation(self, epoch:int, ignore_other_img=False):
         """do model predict
         Args:
