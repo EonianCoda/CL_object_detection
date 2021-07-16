@@ -83,6 +83,8 @@ class IL_states(object):
         self.total_class_num = total_num
 
     def __getitem__(self, key):
+        if isinstance(key, int) and key < 0:
+            key = list(self.states.keys())[key]
         return self.states[key]
 
     def __len__(self):
