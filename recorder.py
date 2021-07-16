@@ -42,7 +42,7 @@ class Recorder(object):
             return
         self.cur_state += 1
         self.iteration = 0
-    
+        
     def add_iter_loss(self, losses:dict):
         if not self.enable_record:
             return

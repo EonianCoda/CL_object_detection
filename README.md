@@ -2,7 +2,7 @@
 
 root <br>
 &nbsp;&nbsp;&nbsp;&nbsp; -code <br>
-&nbsp;&nbsp;&nbsp;&nbsp; -model <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -checkpoint <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --\[scenario\] <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state0 <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state1 <br>
@@ -15,7 +15,7 @@ root <br>
 ### 範例
 root <br>
 &nbsp;&nbsp;&nbsp;&nbsp; -code <br>
-&nbsp;&nbsp;&nbsp;&nbsp; -model <br>
+&nbsp;&nbsp;&nbsp;&nbsp; -checkpoint <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --20 <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ---state0 <br>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; --15_1 <br>

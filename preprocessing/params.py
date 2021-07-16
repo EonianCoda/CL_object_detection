@@ -120,11 +120,11 @@ class Params(object):
             self['data_split'] = specific_data_split
 
         # init path and directory
-        ckp_path = os.path.join(self['root_dir'], 'model')
+        ckp_path = os.path.join(self['root_dir'], 'checkpoint')
         create_dir(ckp_path)
         ckp_path = os.path.join(ckp_path, self['scenario'])
         create_dir(ckp_path)
-        self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/model/15_1", "root_dir/model/20"
+        self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/checkpoint/15_1", "root_dir/checkpoint/20"
         self['data_path'] = os.path.join(self['root_dir'], 'dataset', self['dataset']) # the training data path
 
         # init states for scenario
@@ -184,7 +184,7 @@ class Params(object):
                 os.remove(self.get_ckp_path(state, i))
 
     def get_ckp_path(self, state:int, epoch:int):
-        """get checkpoint's path, which contains the checkpoint's name, for example: "/model/20/voc2007_checkpoint_10.pt"
+        """get checkpoint's path, which contains the checkpoint's name, for example: "/checkpoint/20/voc2007_checkpoint_10.pt"
 
             Args:
                 state: current state index 
