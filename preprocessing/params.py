@@ -1,6 +1,8 @@
-import collections
+# import collections
+
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
+from retinanet.model import create_retinanet
 
 import os
 import torch
@@ -212,7 +214,20 @@ class Params(object):
         debug_print('Load checkpoint at state{} Epoch{}'.format(state, epoch)) 
         return torch.load(self.get_ckp_path(state, epoch))
        
-    def load_model(self, state:int, epoch:int, model, optimizer = None, scheduler = None, loss_hist = None):
+    def get_model(self, state:int,  epoch=-1):
+        """read checkpoint
+            Args:
+                state: state index
+                epoch: prefered epochs, -1 mean auto search the max epoch in this state , None mean not readcheckpoint default = None 
+        """
+        if state < 0:
+            raise ValueError("State{} doesn't exist".format(state))
+
+        model = create_retinanet(self['depth'], self.states[state]['num_knowing_class'])
+        self.load_model(state, epoch, model)
+        return model
+
+    def load_model(self, state:int, epoch:int, model = None, optimizer = None, scheduler = None, loss_hist = None):
         """read checkpoint
 
             Args:
@@ -225,10 +240,9 @@ class Params(object):
         
         if state < 0:
             raise ValueError("State{} doesn't exist".format(state))
-
         ckp = self.load_checkpoint(state, epoch)
-
-        model.load_state_dict(ckp['model_state_dict'])
+        if model != None:
+            model.load_state_dict(ckp['model_state_dict'])
         if optimizer != None:
             optimizer.load_state_dict(ckp['optimizer_state_dict'])
         if scheduler != None:
@@ -278,7 +292,7 @@ class Params(object):
 
     def output_params(self, state):
         output_path = os.path.join(self['ckp_path'], "state{}".format(state))
-        with open(os.path.join(self['root_dir'], "params.txt"), 'w') as f:
+        with open(os.path.join(output_path, "params.txt"), 'w') as f:
             lines = []
             
             for key, value in self._params.items():
