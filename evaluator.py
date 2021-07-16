@@ -297,7 +297,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         with ThreadPoolExecutor(max_workers=split) as ex:
             futures = [ex.submit(single_just_evaluation, epoch, pbar, indexs) for idxs in eval_indexs]
             for future in as_completed(futures):                
-                results.append(future.result())
+                results.extend(future.result())
         
         file_path = evaluator.get_result_path(epoch)
         json.dump(results, open(os.path.join(file_path), 'w') ,indent=4)
