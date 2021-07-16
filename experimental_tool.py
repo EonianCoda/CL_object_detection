@@ -65,7 +65,7 @@ class Experimental_tool(object):
                 classed_parameters[class_idx]['bias'].append(output_bias.data[start_idx + class_idx])
         for class_idx in range(self.num_classes):
             classed_parameters[class_idx]['weight'] = torch.cat(classed_parameters[class_idx]['weight'])
-            classed_parameters[class_idx]['bias'] = torch.cat(classed_parameters[class_idx]['bias'])
+            classed_parameters[class_idx]['bias'] = torch.tensor(classed_parameters[class_idx]['bias'])
 
         return classed_parameters
             # self.output.bias.data[i * self.num_classes:i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes:(i+1) * old_classes]
