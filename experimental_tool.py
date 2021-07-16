@@ -54,7 +54,7 @@ class Experimental_tool(object):
         output_weight = self.get_parameters("classificationModel.output.weight")
         output_bias = self.get_parameters("classificationModel.output.bias")
 
-        class_ids = self.params.states[-1]['num']['knowing_class']['id'][:self.num_classes]
+        class_ids = self.params.states[-1]['knowing_class']['id'][:self.num_classes]
         class_names = self.params.states.coco.catId_to_name(class_ids)
 
         classed_parameters = [{'weight':[],'bias':[]} for _ in range(self.num_classes)]
