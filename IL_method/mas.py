@@ -59,3 +59,5 @@ class MAS(object):
 #                 self.output.weight.data[i*20 + j,:,:,:] = old_output.weight.data[i*4 + part_idx,:,:,:]
 #                 self.output.bias.data[i*20 + j] = old_output.bias.data[i*4 + part_idx]     
         return loss
+    def destory(self):
+        del self.precision_matrices

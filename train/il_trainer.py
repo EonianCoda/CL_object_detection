@@ -105,7 +105,6 @@ class IL_Trainer(object):
             return
         self.agem = A_GEM(self.model, self.dataset_replay, self.params)
 
-
     def update_mas(self):
         # set MAS penalty
         if not self.params['mas']:
@@ -161,5 +160,15 @@ class IL_Trainer(object):
     def get_cur_state(self):
         return self.params.states[self.cur_state]
 
+    def destroy(self):
+        if self.model != None:
+            self.model.cpu()
+            del self.model
+        if self.optimizer != None:
+            self.optimizer.cpu()
+            del self.optimizer
+        if self.mas != None:
+            self.mas.destroy()
+        self.params = None
 
         

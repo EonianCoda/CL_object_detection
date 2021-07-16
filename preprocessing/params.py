@@ -276,8 +276,9 @@ class Params(object):
                 else:
                     print('{} = {}'.format(key, value))
 
-    def output_params(self, file_name ="params.txt"):
-        with open(os.path.join(self['root_dir'], file_name), 'w') as f:
+    def output_params(self, state):
+        output_path = os.path.join(self['ckp_path'], "state{}".format(state))
+        with open(os.path.join(self['root_dir'], "params.txt"), 'w') as f:
             lines = []
             
             for key, value in self._params.items():

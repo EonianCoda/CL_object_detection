@@ -1,5 +1,7 @@
 import argparse
 import collections
+from validation import validation
+from evaluator import Evaluator
 # torch 
 import torch
 import torch.optim as optim
@@ -80,6 +82,15 @@ def get_parser(args=None):
     # retinanet params
     parser.add_argument('--alpha', type=float, default=DEFAULT_ALPHA)
     parser.add_argument('--gamma', type=float, default=DEFAULT_GAMMA)
+    # Other params
+    parser.add_argument('--record', help='whether record training with tensorboard default=True', type=str2bool, default=True)  
+    parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=False)
+    parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
+    parser.add_argument('--val', help='whether do validation after training', type=str2bool, default=False)  
+
+    ###############################
+    # Incremental learning params #
+    ###############################
     
     # Warm up
     parser.add_argument('--warm_stage', help='the number of warm-up stage, 0 mean not warm up, default = 0', type=int, default=0)
@@ -113,9 +124,6 @@ def get_parser(args=None):
 
 
     # always default paras
-    parser.add_argument('--record', help='whether record training with tensorboard default=True', type=str2bool, default=True)
-    parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=False)
-    parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
@@ -124,10 +132,26 @@ def get_parser(args=None):
     parser = vars(parser.parse_args(args))
     return parser
 
+def to_val_parser(parser:argparse):
+    parser['state'] = parser['start_state'] 
+    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30, -10)]
+    parser['threshold'] = 0.05
+    parser['just_val'] = False
+    parser['output_csv'] = True
+    parser['warm_stage'] = 0
+    parser['shuffle_class'] = False
+
+    return parser
+
+def validation_process(parser:argparse):
+    parser = to_val_parser(parser)
+    evaluator = Evaluator(parser)
+    validation(evaluator)
+
 def main(args=None):
     parser = get_parser(args)
     params = Params(parser)
-    params.output_params()
+    params.output_params(params['start_state'])
     il_trainer = create_IL_trainer(params)
     # print training information
     if PRINT_INFO:
@@ -144,9 +168,15 @@ def main(args=None):
         print("Incremental learning Info:")
         params.print_il_info()
         print('-'*70)
+    # Train
     train_process(il_trainer)
 
-        
+    # Validation
+    if params['val']:
+        il_trainer.destroy()
+        del il_trainer
+        validation_process(parser)
+
 if __name__ == '__main__':
     assert torch.__version__.split('.')[0] == '1'
     if not torch.cuda.is_available():

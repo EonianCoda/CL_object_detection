@@ -6,6 +6,7 @@ import os
 import json
 from collections import defaultdict
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 # torch
 import torch
 from torchvision import transforms
@@ -18,6 +19,7 @@ from retinanet.model import create_retinanet
 from preprocessing.params import Params, create_dir
 
 DEFAULT_RESULT = {'precision':[], 'recall':[]}
+
 
 class Evaluator(Params):
     def __init__(self, parser:argparse):
@@ -65,7 +67,6 @@ class Evaluator(Params):
         with open(os.path.join(file_path, file_name), 'w') as f:
             f.write(lines)
 
-
     def get_model(self, epoch=None):
         """
             Args:
@@ -103,7 +104,6 @@ class Evaluator(Params):
             pred_file = self.get_result_path(epoch)
             if not os.path.isfile(pred_file):
                 raise ValueError("{} is not found!".format(pred_file))
-
 
     def do_evaluation(self, epoch:int, ignore_other_img=False):
         """do model predict
@@ -211,13 +211,7 @@ class Evaluator(Params):
             image_ids = []
 
 
-            if pbar:
-                iterator_ = range(len(self.dataset))
-            else:
-                iterator_ = tqdm(range(len(self.dataset)),position=0, leave=True)
-                
-
-            for index in iterator_:
+            for index in range(len(self.dataset)):
 
                 data = self.dataset[index]
                 scale = data['scale']
@@ -269,10 +263,49 @@ class Evaluator(Params):
             if not len(results):
                 return
 
-
             file_path = self.get_result_path(epoch)
             json.dump(results, open(os.path.join(file_path), 'w') ,indent=4)
             print("Prediction Foreground num = {}".format(len(results)))
 
         model.cpu()
         del model
+
+
+def multi_evaluation(evaluator:Evaluator, epochs:list):
+    evaluator.evaluation_check(epochs)
+    def single_evaluation(epoch:int, pbar=None):
+        evaluator.do_predict(epoch, pbar)
+        evaluator.do_evaluation(epoch)
+
+    def multi_split_evaluation(epoch:int, pbar, split=2):
+        def single_just_evaluation(epoch, pbar, indexs):
+            result = evaluator.do_predict(epoch, pbar, indexs)
+            return result
+
+        indexs = [i for i in range(len(evaluator.dataset))]
+        part_len = int(len(indexs) / split)
+        eval_indexs = []
+        for i in range(split):
+            eval_indexs.append(indexs[i*part_len:(i+1)*part_len])
+        eval_indexs.append(indexs[(split - 1)*part_len:])
+        results = []
+        with ThreadPoolExecutor(max_workers=split) as ex:
+            futures = [ex.submit(single_just_evaluation, epoch, pbar, indexs) for idxs in eval_indexs]
+            for future in as_completed(futures):                
+                results.append(future.result())
+        
+        file_path = evaluator.get_result_path(epoch)
+        json.dump(results, open(os.path.join(file_path), 'w') ,indent=4)
+        evaluator.do_evaluation(epoch)
+
+
+
+    with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
+        with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
+            if epochs > 1:
+                for epoch in epochs:
+                    ex.submit(single_evaluation, epoch, pbar)
+            else:
+                multi_split_evaluation(epochs[0], pbar, split=2)
+
+

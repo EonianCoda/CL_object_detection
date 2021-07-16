@@ -2,9 +2,7 @@
 import argparse
 # torch
 import torch
-from evaluator import Evaluator
-from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from evaluator import Evaluator, multi_evaluation
 
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
@@ -43,33 +41,26 @@ def get_val_parser(args=None):
     return parser
 
 
+def validation(evaluator:Evaluator):
+    epochs = list(set(evaluator['epoch']))
 
+    print("Evaluate at state{} Epoch({})".format(evaluator['state'], evaluator['epoch']))
 
-def main(args=None):
-    parser = get_val_parser(args)
-    evaluator = Evaluator(parser)
-
-    def evaluation(epoch, pbar=None):
-        evaluator.do_predict(epoch, pbar)
-        evaluator.do_evaluation(epoch)
-
-    epochs = list(set(parser['epoch']))
-
-    print("Evaluate at state{} Epoch({})".format(parser['state'], parser['epoch']))
-    
-    
-    if parser['just_val']:
+    if evaluator['just_val']:
         evaluator.validation_check(epochs)
         for epoch in epochs:
             evaluator.do_evaluation(epoch)
     else:
-        evaluator.evaluation_check(epochs)
-        with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
-            with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
-                for epoch in epochs:
-                    ex.submit(evaluation, epoch, pbar)
-    if parser['output_csv']:
+        multi_evaluation(evaluator, epochs)
+
+    if evaluator['output_csv']:
         evaluator.output_csv_file()
+
+def main(args=None):
+    parser = get_val_parser(args)
+    evaluator = Evaluator(parser)
+    validation(evaluator)
+    
 
 if __name__ == '__main__':
     assert torch.__version__.split('.')[0] == '1'
