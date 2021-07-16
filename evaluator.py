@@ -290,7 +290,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         indexs = [i for i in range(len(evaluator.dataset))]
         part_len = int(len(indexs) / split)
         eval_indexs = []
-        for i in range(split):
+        for i in range(split-1):
             eval_indexs.append(indexs[i*part_len:(i+1)*part_len])
         eval_indexs.append(indexs[(split - 1)*part_len:])
         results = []
