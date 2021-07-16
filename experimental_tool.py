@@ -1,6 +1,8 @@
 import torch
-from retinanet.model import ResNet
-from preprocessing.params import Params
+# from retinanet.model import ResNet
+# from preprocessing.params import Params
+
+
 # VAL_ARG_SAMPLE = "--dataset voc2007 \
 #                     --state 1 \
 #                     --epoch 30 \
@@ -30,11 +32,11 @@ def text_to_args(args):
     return result_arg
 
 
-class Experiment_tool(object):
-    def __init__(self, model:ResNet, params: Params):
+class Experimental_tool(object):
+    def __init__(self, model, params):
         self.model = model
         self.params = params
-        self.num_classes = self.model.num_classes()
+        self.num_classes = self.model.num_classes
         self._init_layer_info()
 
     def _init_layer_info(self):
