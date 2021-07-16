@@ -295,7 +295,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         eval_indexs.append(indexs[(split - 1)*part_len:])
         results = []
         with ThreadPoolExecutor(max_workers=split) as ex:
-            futures = [ex.submit(single_just_evaluation, epoch, pbar, indexs) for idxs in eval_indexs]
+            futures = [ex.submit(single_just_evaluation, epoch, pbar, idxs) for idxs in eval_indexs]
             for future in as_completed(futures):                
                 results.extend(future.result())
         
@@ -311,6 +311,6 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
                 for epoch in epochs:
                     ex.submit(single_evaluation, epoch, pbar)
             else:
-                multi_split_evaluation(epochs[0], pbar, split=2)
+                multi_split_evaluation(epochs[0], pbar, split=4)
 
 
