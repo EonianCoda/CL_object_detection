@@ -70,7 +70,6 @@ class Evaluator(Params):
     def get_model(self, epoch=None):
         """
             Args:
-                state: int. the index of state
                 epoch: int, -1 mean auto search the max epoch in this state , None mean not readcheckpoint default = None , 
         """
         model = create_retinanet(self['depth'], self.states[self['state']]['num_knowing_class'])
@@ -311,6 +310,6 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
                 for epoch in epochs:
                     ex.submit(single_evaluation, epoch, pbar)
             else:
-                multi_split_evaluation(epochs[0], pbar, split=4)
+                multi_split_evaluation(epochs[0], pbar, split=5)
 
 
