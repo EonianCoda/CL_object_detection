@@ -191,7 +191,7 @@ class Evaluator(Params):
         else:
             return file_path
 
-    def do_predict(self, epoch=None, pbar=None):
+    def do_predict(self, epoch=None, pbar=None, indexs=None):
         """do prediction
         
             Args:
@@ -199,6 +199,8 @@ class Evaluator(Params):
         """
         if epoch == None:
             raise ValueError("Epoch cannot be None")
+        if indexs != None:
+            just_return = True
 
         model = self.get_model(epoch)
         model = model.cuda()
@@ -210,8 +212,9 @@ class Evaluator(Params):
             results = []
             image_ids = []
 
-
-            for index in range(len(self.dataset)):
+            if indexs == None:
+                indexs = range(len(self.dataset))
+            for index in indexs:
 
                 data = self.dataset[index]
                 scale = data['scale']
@@ -263,12 +266,15 @@ class Evaluator(Params):
             if not len(results):
                 return
 
-            file_path = self.get_result_path(epoch)
-            json.dump(results, open(os.path.join(file_path), 'w') ,indent=4)
-            print("Prediction Foreground num = {}".format(len(results)))
+            if not just_return:
+                file_path = self.get_result_path(epoch)
+                json.dump(results, open(os.path.join(file_path), 'w') ,indent=4)
+                print("Prediction Foreground num = {}".format(len(results)))
 
         model.cpu()
         del model
+        if just_return:
+            return results
 
 
 def multi_evaluation(evaluator:Evaluator, epochs:list):
@@ -279,8 +285,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
 
     def multi_split_evaluation(epoch:int, pbar, split=2):
         def single_just_evaluation(epoch, pbar, indexs):
-            result = evaluator.do_predict(epoch, pbar, indexs)
-            return result
+            return evaluator.do_predict(epoch, pbar, indexs)
 
         indexs = [i for i in range(len(evaluator.dataset))]
         part_len = int(len(indexs) / split)
@@ -302,7 +307,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
 
     with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
         with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
-            if epochs > 1:
+            if len(epochs) > 1:
                 for epoch in epochs:
                     ex.submit(single_evaluation, epoch, pbar)
             else:
