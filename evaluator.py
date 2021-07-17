@@ -18,7 +18,7 @@ from retinanet.dataloader import IL_dataset, Resizer, Normalizer
 from retinanet.model import create_retinanet
 from preprocessing.params import Params, create_dir
 
-DEFAULT_RESULT = {'precision':[], 'recall':[]}
+DEFAULT_RESULT = {'precision':[], 'recall':[],'pred_num':0,'real_num':0}
 
 
 class Evaluator(Params):
@@ -60,6 +60,16 @@ class Evaluator(Params):
         for epoch in epochs:
             line += ',{},{}'.format(np.mean(self.results[epoch]['precision']), np.mean(self.results[epoch]['recall']))
         lines.append(line)
+        # pred and real num
+        line = 'Pred num'
+        for epoch in epochs:
+            line += ',{},'.format(self.results[epoch]['pred_num'])
+        lines.append(line)
+        line = 'Real num'
+        for epoch in epochs:
+            line += ',{},'.format(self.results[epoch]['real_num'])
+        lines.append(line)
+
 
         lines = '\n'.join(lines)
         file_name = 'val_result_' + '_'.join([str(epoch) for epoch in epochs]) + '.csv'
@@ -117,6 +127,7 @@ class Evaluator(Params):
 
         coco_true = self.dataset.coco
         coco_pred = coco_true.loadRes(pred_file)
+
         # run COCO evaluation
         coco_eval = COCOeval(coco_true, coco_pred, 'bbox')
         coco_eval.params.imgIds = self.dataset.image_ids
@@ -164,6 +175,9 @@ class Evaluator(Params):
             for idx in range(len(precision_result)):
                 empty_result['precision'].append(precision_result[idx][1])
                 empty_result['recall'].append(recall_result[idx][1])
+            
+            empty_result['pred_num'] = len(coco_pred.getAnnIds())
+            empty_result['real_num'] = len(coco_true.getAnnIds(catIds=self.dataset.seen_class_id))
             self.results[epoch] = empty_result
 
     def init_dataset(self):
@@ -200,7 +214,8 @@ class Evaluator(Params):
             raise ValueError("Epoch cannot be None")
         if indexs != None:
             just_return = True
-
+        else:
+            just_return = False
         model = self.get_model(self['state'], epoch)
         model = model.cuda()
         model.training = False

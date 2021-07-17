@@ -218,7 +218,14 @@ class IL_Loss():
         self.focal_loss = FocalLoss()
         self.act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
-    def forward(self, img_batch, annotations, is_replay=False):
+    def forward(self, img_batch, annotations, is_replay=False, close_increment=False):
+        """
+            Args:
+                img_batch: a tenor for input
+                annotations: the annotation for img_batch
+                is_replay: whether the data are from replay dataset, default=False
+                close_increment: if true, then the incremental_state will be close. if false, then auto detect, default=False
+        """
 
         cur_state = self.il_trainer.cur_state
         past_class_num = self.il_trainer.params.states[cur_state]['num_past_class']
@@ -230,7 +237,7 @@ class IL_Loss():
             distill_logits = False
         
         # set incremental flag
-        if cur_state > 0 and not is_replay:
+        if cur_state > 0 and not is_replay and not close_increment:
             increment_state = True
         else:
             increment_state = False

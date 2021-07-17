@@ -128,7 +128,7 @@ def get_parser(args=None):
     parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
     parser.add_argument('--use_data_ratio', type=int, default=1)
-    parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = True',type=str2bool , default=True)
+    parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = False',type=str2bool , default=False)
     parser = vars(parser.parse_args(args))
     return parser
 
