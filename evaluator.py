@@ -91,7 +91,7 @@ class Evaluator(Params):
         recall_declines = recall_declines[:old_class_num]
         line = 'Sum_decline'
         for epoch in epochs:
-            line += ',,,{:.1f}%,{:.1f}%'.format(np.mean(ap_declines) * 100, np.mean(recall_declines) * 100)
+            line += ',,,{:.1f}%,{:.1f}%'.format(sum(ap_declines) * 100, sum(recall_declines) * 100)
         lines.append(line)
         
         # pred and real num
