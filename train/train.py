@@ -125,7 +125,10 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            if il_trainer.dataset_replay != None:
+            if il_trainer.dataset_replay != None and not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output'):
+                print("Start Replay!")
+                print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
+                print('Iteration_num: ',len(il_trainer.dataloader_replay))
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     start = time.time()
                     losses = cal_losses(il_trainer, il_loss, data, is_replay=True)

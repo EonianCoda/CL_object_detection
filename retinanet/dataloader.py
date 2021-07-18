@@ -163,7 +163,7 @@ class Replay_dataset(IL_dataset):
         self.sample_method = params['sample_method']
         self.cur_state = None
         self.seen_class_id = []
-
+        self.image_ids = []
         if self.sample_method == "large_loss":
             self.large_loss_ckp_path = os.path.join(self.train_params.data_path, 'model', self.train_params.scenario)
 
@@ -184,6 +184,7 @@ class Replay_dataset(IL_dataset):
             for state in range(len(self.states)):
                 if self.states[state]['num_knowing_class'] == class_num:
                     self.cur_state = state + 1
+                    self.seen_class_id = self.states[self.cur_state - 1]['knowing_class']['id']
                     return
             raise ValueError("The length of img_ids doesn't meet any state")
         

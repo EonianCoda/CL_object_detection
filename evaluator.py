@@ -6,6 +6,7 @@ import os
 import json
 from collections import defaultdict
 import numpy as np
+import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
 # torch
 import torch
@@ -33,6 +34,10 @@ class Evaluator(Params):
         if self.results == {}:
             return
 
+        file_path = os.path.join(self['root_dir'], 'val_result')
+        with open(os.path.join(file_path, 'upper_bound.pickle'), 'rb') as f:
+            upper_bound = pickle.load(f)
+
         cat_names = self.states[self['state']]['knowing_class']['name']
         epochs = [epoch for epoch in self.results.keys()]
         epochs.sort()
@@ -40,34 +45,49 @@ class Evaluator(Params):
 
         lines = []
         line = ''
-        # Intro
+        # Description
         line = 'Epoch'
         for epoch in epochs:
             line += ',{},{}'.format(epoch, epoch)
         lines.append(line)
         line = ''
         for _ in epochs:
-            line += ',AP,Recall'
+            line += ',AP,Recall,AP decline, Recall decline'
         lines.append(line)
         # result
         for idx in range(cat_num):
-            line = cat_names[idx]
+            cat_name = cat_names[idx]
+            line = cat_name
+            upper_bound_ap = upper_bound[cat_name]['ap']
+            upper_bound_recall = upper_bound[cat_name]['ap']
             for epoch in epochs:
-                line += ',{},{}'.format(self.results[epoch]['precision'][idx], self.results[epoch]['recall'][idx])
+                ap = self.results[epoch]['precision'][idx]
+                recall = self.results[epoch]['recall'][idx]
+                line += ',{},{},{:.1f}%,{:.1f}%'.format(ap, 
+                                              recall,
+                                              (upper_bound_ap - ap)*100,
+                                              (upper_bound_recall - recall)*100)
             lines.append(line)
         # Mean
         line = 'Mean'
         for epoch in epochs:
-            line += ',{},{}'.format(np.mean(self.results[epoch]['precision']), np.mean(self.results[epoch]['recall']))
+            mean_ap = np.mean(self.results[epoch]['precision'])
+            mean_recall = np.mean(self.results[epoch]['recall'])
+            upper_bound_mean_ap = upper_bound['mean']['ap']
+            upper_bound_mean_recall = upper_bound['mean']['recall']
+            line += ',{},{},{:.1f}%,{:.1f}%'.format(mean_ap, 
+                                                    mean_recall,
+                                                    (upper_bound_mean_ap - mean_ap)*100,
+                                                    (upper_bound_mean_recall - mean_recall)*100)
         lines.append(line)
         # pred and real num
         line = 'Pred num'
         for epoch in epochs:
-            line += ',{},'.format(self.results[epoch]['pred_num'])
+            line += ',{},,,'.format(self.results[epoch]['pred_num'])
         lines.append(line)
-        line = 'Real num'
+        line = 'Pred ratio'
         for epoch in epochs:
-            line += ',{},'.format(self.results[epoch]['real_num'])
+            line += ',{:.1f},,{:.1f},'.format(self.results[epoch]['pred_num'] / self.results[epoch]['real_num'], upper_bound['pred_ratio'])
         lines.append(line)
 
 
