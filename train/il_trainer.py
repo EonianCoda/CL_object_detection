@@ -45,7 +45,7 @@ class IL_Trainer(object):
         self.cur_warm_stage = -1
 
         # if start state is not initial state, then update incremental learning setting
-        if self.cur_state > 1:
+        if self.cur_state >= 1:
             self.init_agem()
             self.init_replay_dataset()
             self.update_prev_model()
