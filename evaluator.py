@@ -34,6 +34,8 @@ class Evaluator(Params):
         if self.results == {}:
             return
 
+        ap_declines = []
+        recall_declines = []
         file_path = os.path.join(self['root_dir'], 'val_result')
         with open(os.path.join(file_path, 'upper_bound.pickle'), 'rb') as f:
             upper_bound = pickle.load(f)
@@ -63,10 +65,12 @@ class Evaluator(Params):
             for epoch in epochs:
                 ap = self.results[epoch]['precision'][idx]
                 recall = self.results[epoch]['recall'][idx]
+                ap_declines.append(upper_bound_ap - ap)
+                recall_declines.append(upper_bound_recall - recall)
                 line += ',{},{},{:.1f}%,{:.1f}%'.format(ap, 
                                               recall,
-                                              (upper_bound_ap - ap)*100,
-                                              (upper_bound_recall - recall)*100)
+                                              ap_declines[-1]*100,
+                                              recall_declines[-1]*100)
             lines.append(line)
         # Mean
         line = 'Mean'
@@ -82,16 +86,12 @@ class Evaluator(Params):
         lines.append(line)
 
         # sum of old Decline
-        
-        upper_bound_aps = []
-        upper_bound_recalls = []
-        for idx in range(len(self.states[self['state'] - 1]['knowing_class']['id'])):
-            cat_name = cat_names[idx]
-            upper_bound_aps.append(upper_bound[cat_name]['ap'])
-            upper_bound_recalls.append(upper_bound[cat_name]['recall'])
+        old_class_num = len(self.states[self['state'] - 1]['knowing_class']['id'])
+        ap_declines = ap_declines[:old_class_num]
+        recall_declines = recall_declines[:old_class_num]
         line = 'Sum_decline'
         for epoch in epochs:
-            line += ',,,{:.1f}%,{:.1f}%'.format(np.mean(upper_bound_aps) * 100, np.mean(upper_bound_recalls) * 100)
+            line += ',,,{:.1f}%,{:.1f}%'.format(np.mean(ap_declines) * 100, np.mean(recall_declines) * 100)
         lines.append(line)
         
         # pred and real num
