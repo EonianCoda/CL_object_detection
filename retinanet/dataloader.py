@@ -162,7 +162,7 @@ class Replay_dataset(IL_dataset):
         self.per_num = params['sample_num'] #how many picutes each class has 
         self.sample_method = params['sample_method']
         self.cur_state = None
-        self.knowing_class = []
+        self.seen_class_id = []
 
         if self.sample_method == "large_loss":
             self.large_loss_ckp_path = os.path.join(self.train_params.data_path, 'model', self.train_params.scenario)
@@ -177,7 +177,7 @@ class Replay_dataset(IL_dataset):
         """
         self.image_ids = img_ids
         self.per_num = per_num #how many picutes in each class
-        self.knowing_class = []
+        self.seen_class_id = []
         if len(self.image_ids) != 0:
             class_num = int(len(self.image_ids) / self.per_num)
 
@@ -186,6 +186,8 @@ class Replay_dataset(IL_dataset):
                     self.cur_state = state + 1
                     return
             raise ValueError("The length of img_ids doesn't meet any state")
+        
+
 
     def sample_imgs(self, sample_CIDs:list, limit_imgIds:list):
         # read large loss checkpoint
@@ -221,14 +223,14 @@ class Replay_dataset(IL_dataset):
         debug_print('Sample data on state{}'.format(state))
         
         
-        self.knowing_class = self.states[self.cur_state - 1]['knowing_class']['id']
+        self.seen_class_id = self.states[self.cur_state - 1]['knowing_class']['id']
 
         
         future_CIDs = []
         for i in range(self.cur_state, len(self.states)):
             future_CIDs.extend(self.states[i]['new_class']['id'])
 
-        self.sample_imgs(self.knowing_class, set(self.coco.get_imgs_by_cats(future_CIDs)))
+        self.sample_imgs(self.seen_class_id, set(self.coco.get_imgs_by_cats(future_CIDs)))
 
     def next_state(self):
         """add new state, sample old data
@@ -241,41 +243,41 @@ class Replay_dataset(IL_dataset):
             raise(ValueError("State{} doesn't exist in Replay dataloader".format(self.cur_state)))
 
         sample_CIDs = self.states[self.cur_state - 1]['new_class']['id']
-        self.knowing_class.extend(sample_CIDs)
+        self.seen_class_id.extend(sample_CIDs)
 
         # get futrue class ids and futrue imgs
         future_CIDs = []
         for i in range(self.cur_state, len(self.states)):
             future_CIDs.extend(self.states[i]['new_class']['id'])
 
-        self.sample_imgs(self.knowing_class, set(self.coco.get_imgs_by_cats(future_CIDs)))
+        self.sample_imgs(self.seen_class_id, set(self.coco.get_imgs_by_cats(future_CIDs)))
         
-    def load_annotations(self, image_index):
-        # get ground truth annotations
-        annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
-        annotations     = np.zeros((0, 5))
+    # def load_annotations(self, image_index):
+    #     # get ground truth annotations
+    #     annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
+    #     annotations     = np.zeros((0, 5))
 
-        # some images appear to miss annotations (like image with id 257034)
-        if len(annotations_ids) == 0:
-            return annotations
+    #     # some images appear to miss annotations (like image with id 257034)
+    #     if len(annotations_ids) == 0:
+    #         return annotations
 
-        # parse annotations
-        coco_annotations = self.coco.loadAnns(annotations_ids)
-        for idx, ann in enumerate(coco_annotations):
-            # some annotations have basically no width / height, skip them
-            if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
-                continue
+    #     # parse annotations
+    #     coco_annotations = self.coco.loadAnns(annotations_ids)
+    #     for idx, ann in enumerate(coco_annotations):
+    #         # some annotations have basically no width / height, skip them
+    #         if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
+    #             continue
 
-            annotation        = np.zeros((1, 5))
-            annotation[0, :4] = ann['bbox']
-            annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
-            annotations       = np.append(annotations, annotation, axis=0)
+    #         annotation        = np.zeros((1, 5))
+    #         annotation[0, :4] = ann['bbox']
+    #         annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
+    #         annotations       = np.append(annotations, annotation, axis=0)
 
-        # transform from [x, y, w, h] to [x1, y1, x2, y2]
-        annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
-        annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
+    #     # transform from [x, y, w, h] to [x1, y1, x2, y2]
+    #     annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
+    #     annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
 
-        return annotations
+    #     return annotations
   
 def collater(data):
 
