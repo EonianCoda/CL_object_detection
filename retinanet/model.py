@@ -313,6 +313,20 @@ class ResNet(nn.Module):
                 p.requires_grad = True
         self.freeze_bn()
   
+
+    def forward_feature(self, img_batch):
+        x = self.conv1(img_batch)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
+        features = self.fpn([x2, x3, x4])
+        return features
+        
     def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
         """ model forward transfer
             Args:

@@ -50,7 +50,7 @@ class Evaluator(Params):
         # Description
         line = 'Epoch'
         for epoch in epochs:
-            line += ',{},{}'.format(epoch, epoch)
+            line += ',{},{},,'.format(epoch, epoch)
         lines.append(line)
         line = ''
         for _ in epochs:
