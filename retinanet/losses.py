@@ -265,7 +265,8 @@ class IL_Loss():
                                                                 return_anchor=True, 
                                                                 enable_act=True)
             cls_loss, reg_loss = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
-
+            result['cls_loss'] = cls_loss.mean()
+            result['reg_loss'] = reg_loss.mean()
             # Enhance error on Replay dataset
             if self.il_trainer.params['enhance_error'] and is_replay:
                 classification = classification[:,:,past_class_num:]
@@ -294,7 +295,9 @@ class IL_Loss():
                 cls_loss, reg_loss, non_GD = losses
             else:
                 cls_loss, reg_loss = losses
-
+            result['cls_loss'] = cls_loss.mean()
+            result['reg_loss'] = reg_loss.mean()
+            
             # Compute distillation loss
             if self.params['distill']:
                 with torch.no_grad():
@@ -360,7 +363,6 @@ class IL_Loss():
                 mas_loss = self.il_trainer.mas.penalty(self.il_trainer.prev_model)
                 result['mas_loss'] = mas_loss
 
-        result['cls_loss'] = cls_loss.mean()
-        result['reg_loss'] = reg_loss.mean()
+
 
         return result

@@ -159,7 +159,7 @@ class ClassificationModel(nn.Module):
 
         return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
-    def next_state(self, num_new_classes):
+    def next_state(self, num_new_classes, copy_from_similar=True):
         """increase the number of neurons in output layer
 
             Args:
@@ -181,6 +181,12 @@ class ClassificationModel(nn.Module):
         for i in range(self.num_anchors):
             self.output.weight.data[i * self.num_classes:i * self.num_classes + old_classes,:,:,:] = old_output.weight.data[i * old_classes:(i+1) * old_classes,:,:,:] 
             self.output.bias.data[i * self.num_classes:i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes:(i+1) * old_classes]
+        
+        if copy_from_similar:
+            # copy weight from the most similar class
+            for i in range(self.num_anchors):
+                self.output.weight.data[i * self.num_classes + old_classes,:,:,:] = old_output.weight.data[i * old_classes + 3,:,:,:] 
+                self.output.bias.data[i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes + 3]
             
         self.output.cuda()
         del old_output
