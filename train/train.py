@@ -114,6 +114,8 @@ def train_process(il_trainer : IL_Trainer):
                     
                 start = time.time()
                 losses = cal_losses(il_trainer, il_loss, data)
+                if losses == None:
+                    continue
                 end = time.time()
                 print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
@@ -129,6 +131,8 @@ def train_process(il_trainer : IL_Trainer):
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     start = time.time()
                     losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+                    if losses == None:
+                        continue
                     end = time.time()
                     print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
