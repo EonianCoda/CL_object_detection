@@ -56,16 +56,16 @@ def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_
     info.extend([np.mean(il_trainer.loss_hist), spend_time])
     print(output.format(info))
 
-def cal_losses(il_trainer, il_loss, data, is_reaply=False):
+def cal_losses(il_trainer, il_loss, data, is_replay=False):
     fast_zero_grad(il_trainer.model)
     if not il_trainer.params['debug']:
         try:
-            losses = training_iteration(il_trainer,il_loss, data, is_reaply)
+            losses = training_iteration(il_trainer,il_loss, data, is_replay)
         except Exception as e:
             print(e)
             return None
     else:
-        losses = training_iteration(il_trainer,il_loss, data, is_reaply)
+        losses = training_iteration(il_trainer,il_loss, data, is_replay)
 
     if losses == None:
         return None
@@ -113,9 +113,8 @@ def train_process(il_trainer : IL_Trainer):
                 #     agem.cal_replay_grad(optimizer)
                     
                 start = time.time()
-
-                end = time.time()
                 losses = cal_losses(il_trainer, il_loss, data)
+                end = time.time()
                 print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
                 # Iteration Log
@@ -129,9 +128,8 @@ def train_process(il_trainer : IL_Trainer):
             if il_trainer.dataset_replay != None:
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     start = time.time()
-
+                    losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
                     end = time.time()
-                    losses = cal_losses(il_trainer, il_loss, data, is_reaply=True)
                     print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
                 # Iteration Log
