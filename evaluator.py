@@ -59,7 +59,7 @@ class Evaluator(Params):
             cat_name = cat_names[idx]
             line = cat_name
             upper_bound_ap = upper_bound[cat_name]['ap']
-            upper_bound_recall = upper_bound[cat_name]['ap']
+            upper_bound_recall = upper_bound[cat_name]['recall']
             for epoch in epochs:
                 ap = self.results[epoch]['precision'][idx]
                 recall = self.results[epoch]['recall'][idx]
@@ -85,13 +85,14 @@ class Evaluator(Params):
         
         upper_bound_aps = []
         upper_bound_recalls = []
-        for idx in range(len(self.states[self['state']]['knowing_class']['id'])):
+        for idx in range(len(self.states[self['state'] - 1]['knowing_class']['id'])):
             cat_name = cat_names[idx]
             upper_bound_aps.append(upper_bound[cat_name]['ap'])
             upper_bound_recalls.append(upper_bound[cat_name]['recall'])
         line = 'Sum_decline'
         for epoch in epochs:
-            line += ',,{:.1f}%,{:.1f}%,'.format(np.mean(upper_bound_aps) * 100, np.mean(upper_bound_recalls) * 100)
+            line += ',,,{:.1f}%,{:.1f}%'.format(np.mean(upper_bound_aps) * 100, np.mean(upper_bound_recalls) * 100)
+        lines.append(line)
         
         # pred and real num
         line = 'Pred num'
