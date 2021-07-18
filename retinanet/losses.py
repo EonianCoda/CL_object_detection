@@ -218,32 +218,47 @@ class IL_Loss():
         self.focal_loss = FocalLoss()
         self.act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
-    def forward(self, img_batch, annotations, is_replay=False, close_increment=False):
+    def forward(self, img_batch, annotations, is_replay=False):
         """
             Args:
                 img_batch: a tenor for input
                 annotations: the annotation for img_batch
-                is_replay: whether the data are from replay dataset, default=False
-                close_increment: if true, then the incremental_state will be close. if false, then auto detect, default=False
+                is_replay: whether the data is from replay dataset, default=False
         """
 
+        ##############
+        # init para  #
+        ##############
+        
         cur_state = self.il_trainer.cur_state
         past_class_num = self.il_trainer.params.states[cur_state]['num_past_class']
 
-        # whether distill logits
+        # whether calculate the distillation loss with logits 
         if self.il_trainer.params['distill']:
             distill_logits = self.il_trainer.params['distill_logits']
         else:
             distill_logits = False
         
-        # set incremental flag
-        if cur_state > 0 and not is_replay and not close_increment:
+        # whether the model is in warm up, and warm up on classifier
+        cur_warm_stage = self.il_trainer.cur_warm_stage
+        if cur_warm_stage != -1 and self.params['warm_layers'][cur_warm_stage] == 'output':
+            classifier_warm_stage = True
+        else:
+            classifier_warm_stage = False
+
+        if cur_state > 0 and not is_replay and not classifier_warm_stage:
             increment_state = True
         else:
             increment_state = False
 
         result = {}
-        # non-incremental
+
+
+        #################
+        # Start forward #
+        #################
+
+        # non-incremental state
         if not increment_state:
             classification, regression, anchors = self.il_trainer.model(img_batch, 
                                                                 return_feat=False, 
@@ -273,10 +288,6 @@ class IL_Loss():
                                                                                 enable_act=False)
             # Compute focal loss
             losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
-            # if distill_logits:
-                
-            # else:
-            #     losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
 
             # Whether ignore ground truth           
             if self.params['ignore_ground_truth']:

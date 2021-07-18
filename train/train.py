@@ -1,3 +1,4 @@
+from os import stat
 from recorder import Recorder
 import torch
 import time
@@ -12,14 +13,14 @@ def fast_zero_grad(model):
     for param in model.parameters():
         param.grad = None
 
-def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
+def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=False):
     """
         Args:
         Return: a dict, containing loss information
     """
     # with torch.cuda.amp.autocast():
     with torch.cuda.device(0):
-        losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda())
+        losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay)
 
         loss = torch.tensor(0).float().cuda()
         loss_info = {}
@@ -39,6 +40,36 @@ def train_iter(il_trainer:IL_Trainer, il_loss:IL_Loss, data):
 
         del losses
     return loss_info
+
+def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_time:float):
+    """Print Iteration Information
+
+    """
+    info = [cur_epoch, iter_num]
+    output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
+    for key, value in losses.items():
+        output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
+        info.extend([key, value])
+    
+    output += ' | Running loss: {0[%d]:1.5f} | Spend Time:{0[%d]:1.2f}s' % (len(info), len(info)+1)
+    
+    info.extend([np.mean(il_trainer.loss_hist), spend_time])
+    print(output.format(info))
+
+def cal_losses(il_trainer, il_loss, data, is_reaply=False):
+    fast_zero_grad(il_trainer.model)
+    if not il_trainer.params['debug']:
+        try:
+            losses = training_iteration(il_trainer,il_loss, data, is_reaply)
+        except Exception as e:
+            print(e)
+            return None
+    else:
+        losses = training_iteration(il_trainer,il_loss, data, is_reaply)
+
+    if losses == None:
+        return None
+    return losses
 
 def train_process(il_trainer : IL_Trainer):
     # init training info
@@ -76,41 +107,36 @@ def train_process(il_trainer : IL_Trainer):
             il_trainer.warm_up(epoch=cur_epoch)
             il_trainer.model.freeze_bn()
 
+            # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
                 # if enable_warm_up and epoch_num >= warm_up_epoch + 1 and enable_agem:
                 #     agem.cal_replay_grad(optimizer)
                     
                 start = time.time()
-                fast_zero_grad(il_trainer.model)
-                if not il_trainer.params['debug']:
-                    try:
-                        losses = train_iter(il_trainer,il_loss, data)
-                    except Exception as e:
-                        print(e)
-                        continue
-                else:
-                    losses = train_iter(il_trainer,il_loss, data)
 
-                if losses == None:
-                    continue
-                
-                # Print Iteration Information
-                info = [cur_epoch, iter_num]
-                output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
-                for key, value in losses.items():
-                    output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
-                    info.extend([key, value])
-                
-                output += ' | Running loss: {0[%d]:1.5f} | Spend Time:{0[%d]:1.2f}s' % (len(info), len(info)+1)
                 end = time.time()
-                info.extend([np.mean(il_trainer.loss_hist), end - start])
-                print(output.format(info))
+                losses = cal_losses(il_trainer, il_loss, data)
+                print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
-                
                 # Iteration Log
                 epoch_loss.append(losses['total_loss'])
                 avg_times.append(end - start)
 
+                recorder.add_iter_loss(losses)
+
+
+            # Replay Dataset
+            if il_trainer.dataset_replay != None:
+                for iter_num, data in enumerate(il_trainer.dataloader_replay):
+                    start = time.time()
+
+                    end = time.time()
+                    losses = cal_losses(il_trainer, il_loss, data, is_reaply=True)
+                    print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
+
+                # Iteration Log
+                epoch_loss.append(losses['total_loss'])
+                avg_times.append(end - start)
                 recorder.add_iter_loss(losses)
 
             il_trainer.scheduler.step(np.mean(epoch_loss))

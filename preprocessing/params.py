@@ -163,16 +163,16 @@ class Params(object):
             Args:
                 epcoh: current epoch
             Return:
-                success: (warmup_stage + 1, white_list)
-                fail: (0, None)
+                success: (currrent warmup stage, white_list)
+                fail: (-1, None)
         """
         if self['warm_stage'] == 0:
-            return (0, None)
+            return (-1, None)
         
         for idx, stop_epoch in enumerate(self['warm_stop_epoch']):
             if epoch < stop_epoch:
-                return (idx + 1, self['warm_white_list'][idx])
-        return (0, None)
+                return (idx, self['warm_white_list'][idx])
+        return (-1, None)
 
     def auto_delete(self, state : int, epoch : int):
         """delete the checkpoint every five checkpoint

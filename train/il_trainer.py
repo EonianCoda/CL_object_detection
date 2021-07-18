@@ -41,6 +41,9 @@ class IL_Trainer(object):
         self.mas = None
         self.agem = None
 
+        # when training, use above attribute
+        self.cur_warm_stage = -1
+
         # if start state is not initial state, then update incremental learning setting
         if self.cur_state > 1:
             self.init_agem()
@@ -98,6 +101,9 @@ class IL_Trainer(object):
                 raise ValueError("The per num for custom sample method cannot be {}".format(self.params['sample_num']))
 
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=custom_ids)
+
+        sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
+        self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
     def init_agem(self):
         if not self.params['agem']:
@@ -145,14 +151,15 @@ class IL_Trainer(object):
         # No warm-up
         if self.params['warm_stage'] == 0:
             self.warm_status = 0
-            return 0
+            self.cur_warm_stage = -1
+            return
 
-        idx, white_list = self.params.is_warmup(epoch)
+        cur_warm_stage , white_list = self.params.is_warmup(epoch)
         if white_list != None:
             self.model.freeze_layers(white_list)
         else:
             self.model.unfreeze_layers()
-        return idx
+        self.cur_warm_stage = cur_warm_stage
 
     def save_ckp(self, epoch_loss:list,epoch:int):
 
