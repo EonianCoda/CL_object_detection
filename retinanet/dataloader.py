@@ -159,7 +159,7 @@ class Replay_dataset(IL_dataset):
 
         super().__init__(params, transform, 1, 1)
 
-        self.per_num = params['per_num'] #how many picutes each class has 
+        self.per_num = params['sample_num'] #how many picutes each class has 
         self.sample_method = params['sample_method']
         self.cur_state = None
         self.knowing_class = []

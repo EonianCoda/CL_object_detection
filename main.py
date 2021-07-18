@@ -134,7 +134,7 @@ def get_parser(args=None):
 
 def to_val_parser(parser:argparse):
     parser['state'] = parser['start_state'] 
-    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30, -10)]
+    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)]
     parser['threshold'] = 0.05
     parser['just_val'] = False
     parser['output_csv'] = True

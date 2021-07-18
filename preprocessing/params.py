@@ -9,8 +9,9 @@ import torch
 import random
 import copy
 WARM_UP_WHITE_LIST = { 'output':['classificationModel.output'],
-                       'resnet':['fpn', 'classificationModel', 'regressionModel'],
-                       'fpn':['classificationModel', 'regressionModel']}
+                        'fpn':['classificationModel', 'regressionModel'],
+                       'resnet':['fpn', 'classificationModel', 'regressionModel']
+                       }
 
 # num_knowing_class = num_new_class + num_past_class
 EMPTY_STATE = {'knowing_class':{'id':[],'name':[]},

@@ -1,13 +1,12 @@
-from os import stat
-from recorder import Recorder
+#build-in
 import torch
 import time
 import numpy as np
-
-
+# retinanet
 from retinanet.losses import IL_Loss
-
 from train.il_trainer import IL_Trainer
+# tool
+from recorder import Recorder
 
 def fast_zero_grad(model):
     for param in model.parameters():
@@ -32,7 +31,6 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             return None
         loss.backward()
 
-    
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
         il_trainer.optimizer.step()
         il_trainer.loss_hist.append(float(loss))
@@ -122,7 +120,7 @@ def train_process(il_trainer : IL_Trainer):
                 # Iteration Log
                 epoch_loss.append(losses['total_loss'])
                 avg_times.append(end - start)
-
+        
                 recorder.add_iter_loss(losses)
 
 
