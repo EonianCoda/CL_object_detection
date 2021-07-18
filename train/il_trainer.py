@@ -101,7 +101,8 @@ class IL_Trainer(object):
                 raise ValueError("The per num for custom sample method cannot be {}".format(self.params['sample_num']))
 
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=custom_ids)
-
+        else:
+            self.dataset_replay.reset_by_state(self.cur_state)
         sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
         self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
