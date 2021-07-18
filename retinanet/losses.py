@@ -272,11 +272,11 @@ class IL_Loss():
                 classification = classification[:,:,past_class_num:]
 
                 method = (self.il_trainer.params['enhance_error_method']).upper()
-                if method.lower() == "L1":
+                if method == "L1":
                     enhance_loss = torch.abs(classification[classification > 0.05])
-                elif method.lower() == "L2":
+                elif method == "L2":
                     enhance_loss = torch.pow(classification[classification > 0.05], 2)
-                elif method.lower() == "L3":
+                elif method == "L3":
                     enhance_loss = torch.pow(classification[classification > 0.05], 3)
                 enhance_loss = enhance_loss.sum() / torch.clamp(classification.shape[0], min=1)
 
