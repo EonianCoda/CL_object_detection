@@ -278,7 +278,7 @@ class IL_Loss():
                     enhance_loss = torch.pow(classification[classification > 0.05], 2)
                 elif method == "L3":
                     enhance_loss = torch.pow(classification[classification > 0.05], 3)
-                enhance_loss = enhance_loss.sum() / torch.clamp(classification.shape[0], min=1)
+                enhance_loss = enhance_loss.sum() / max(classification.shape[0], 1)
 
                 result['enhance_loss'] = enhance_loss
         # incremental state
