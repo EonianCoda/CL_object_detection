@@ -82,25 +82,11 @@ class IL_Trainer(object):
                                             transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
         custom_ids = []
         # custom sample
-        if self.params['sample_method'] == 'custom':
-            # sample 2
-            custom_ids_2 = [2008002080, 2008001302, 2010004059, 2010001043, 2009004340, 2008004603, 
-                            2009004871, 2009004383, 2010004848, 2011000233, 2009001541, 2008007629, 
-                            2008002850, 2008008616, 2010004660, 2010002870, 2008006004, 2009005057, 
-                            2011002818, 2010003078, 2009001751, 2010003929, 2009005037, 2009005177, 
-                            2008008521, 2008008121, 2010000484, 2008001479, 2010004247, 2009001147]
-            # sample 1
-            custom_ids_1 = [2008001302, 2010004059, 2008004603, 2009004871, 2010004848, 
-                            2011002114, 2008008616, 2010002870, 2009005057, 2010003078, 
-                            2008006923, 2009001948, 2009003510, 2008001479, 2010004247]
-            if self.params['sample_num'] == 1:
-                custom_ids = custom_ids_1
-            elif self.params['sample_num'] == 2:
-                custom_ids = custom_ids_2
-            else:
-                raise ValueError("The per num for custom sample method cannot be {}".format(self.params['sample_num']))
-
-            self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=custom_ids)
+        if self.params['sample_method'] == 'herd':
+            with open(os.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1), 'examplar.pickle'), 'rb') as f:
+                examplar = pickle.load(f)
+            examplar = ['{:06d}'.format(img_id) for img_id in examplar]
+            self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=examplar)
         else:
             self.dataset_replay.reset_by_state(self.cur_state)
         sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
