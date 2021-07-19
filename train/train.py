@@ -26,7 +26,7 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         for key, value in losses.items():
             loss += value
             if is_replay:
-                key = 'replay' + key
+                key = 'replay_' + key
             loss_info[key] = float(value)
 
         if bool(loss == 0):
