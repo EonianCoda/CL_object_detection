@@ -83,9 +83,9 @@ class IL_Trainer(object):
         custom_ids = []
         # custom sample
         if self.params['sample_method'] == 'herd':
-            with open(os.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1), 'examplar.pickle'), 'rb') as f:
+            with open(os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1), 'examplar.pickle'), 'rb') as f:
                 examplar = pickle.load(f)
-            examplar = ['{:06d}'.format(img_id) for img_id in examplar]
+            # examplar = ['{:06d}'.format(img_id) for img_id in examplar]
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=examplar)
         else:
             self.dataset_replay.reset_by_state(self.cur_state)

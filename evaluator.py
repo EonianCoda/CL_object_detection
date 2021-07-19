@@ -34,8 +34,8 @@ class Evaluator(Params):
         if self.results == {}:
             return
 
-        ap_declines = []
-        recall_declines = []
+        ap_declines = defaultdict(list)
+        recall_declines = defaultdict(list)
         file_path = os.path.join(self['root_dir'], 'val_result')
         with open(os.path.join(file_path, 'upper_bound.pickle'), 'rb') as f:
             upper_bound = pickle.load(f)
@@ -50,7 +50,7 @@ class Evaluator(Params):
         # Description
         line = 'Epoch'
         for epoch in epochs:
-            line += ',{},{},,'.format(epoch, epoch)
+            line += ',{}'.format(epoch) * 4
         lines.append(line)
         line = ''
         for _ in epochs:
@@ -65,12 +65,12 @@ class Evaluator(Params):
             for epoch in epochs:
                 ap = self.results[epoch]['precision'][idx]
                 recall = self.results[epoch]['recall'][idx]
-                ap_declines.append(upper_bound_ap - ap)
-                recall_declines.append(upper_bound_recall - recall)
+                ap_declines[epoch].append(upper_bound_ap - ap)
+                recall_declines[epoch].append(upper_bound_recall - recall)
                 line += ',{},{},{:.1f}%,{:.1f}%'.format(ap, 
                                               recall,
-                                              ap_declines[-1]*100,
-                                              recall_declines[-1]*100)
+                                              ap_declines[epoch][-1]*100,
+                                              recall_declines[epoch][-1]*100)
             lines.append(line)
         # Mean
         line = 'Mean'
@@ -87,11 +87,9 @@ class Evaluator(Params):
 
         # sum of old Decline
         old_class_num = len(self.states[self['state'] - 1]['knowing_class']['id'])
-        ap_declines = ap_declines[:old_class_num]
-        recall_declines = recall_declines[:old_class_num]
         line = 'Sum_decline'
         for epoch in epochs:
-            line += ',,,{:.1f}%,{:.1f}%'.format(sum(ap_declines) * 100, sum(recall_declines) * 100)
+            line += ',,,{:.1f}%,{:.1f}%'.format(sum(ap_declines[epoch][:old_class_num]) * 100, sum(recall_declines[epoch][:old_class_num]) * 100)
         lines.append(line)
         
         # pred and real num

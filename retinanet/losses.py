@@ -270,14 +270,14 @@ class IL_Loss():
             # Enhance error on Replay dataset
             if self.il_trainer.params['enhance_error'] and is_replay:
                 classification = classification[:,:,past_class_num:]
-
+                classification = classification[classification > 0.05]
                 method = (self.il_trainer.params['enhance_error_method']).upper()
                 if method == "L1":
-                    enhance_loss = torch.abs(classification[classification > 0.05])
+                    enhance_loss = torch.abs(classification)
                 elif method == "L2":
-                    enhance_loss = torch.pow(classification[classification > 0.05], 2)
+                    enhance_loss = torch.pow(classification, 2)
                 elif method == "L3":
-                    enhance_loss = torch.pow(classification[classification > 0.05], 3)
+                    enhance_loss = torch.pow(classification, 3)
                 enhance_loss = enhance_loss.sum() / max(classification.shape[0], 1)
 
                 result['enhance_loss'] = enhance_loss
