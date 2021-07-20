@@ -187,8 +187,8 @@ class ClassificationModel(nn.Module):
         for new_class_id in range(num_new_classes):
             for old_class_id, ratio in enumerate(similaritys[new_class_id]):
                 for i in range(self.num_anchors):
-                    self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * self.num_classes + old_class_id,:,:,:] 
-                    self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * self.num_classes + old_class_id]
+                    self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * num_old_class + old_class_id,:,:,:] 
+                    self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * num_old_class + old_class_id]
         # if copy_from_similar:
         #     # copy weight from the most similar class
         #     for i in range(self.num_anchors):

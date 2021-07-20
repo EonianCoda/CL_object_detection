@@ -25,7 +25,7 @@ def calc_iou(a, b):
 
 def get_similarity(model, dataset_train):
     new_class_num = len(dataset_train.seen_class_id)
-    old_class_num = len(model.num_classes)
+    old_class_num = model.num_classes
 
     # not use Augmenter
     dataset_train.transform = transforms.Compose([Normalizer(), Resizer()])
