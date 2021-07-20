@@ -94,7 +94,7 @@ class Weight_similarity(object):
         
         positive_indices = torch.ge(IoU_max, 0.5)
         
-        greater = torch.ge(torch.sum(classification, dim = 1), THRESOLD)
+        greater = torch.ge(torch.sum(classification, dim = 1), self.thresold)
         
         indices = torch.logical_and(positive_indices, greater)
         
