@@ -23,13 +23,13 @@ def calc_iou(a, b):
 
     return IoU
 
-def get_similarity(model, dataset_train):
+def get_similarity(model, dataset_train, thresold=THRESOLD):
     new_class_num = len(dataset_train.seen_class_id)
     old_class_num = model.num_classes
 
     # not use Augmenter
     dataset_train.transform = transforms.Compose([Normalizer(), Resizer()])
-    weight_similarity  =  Weight_similarity(model, new_class_num, old_class_num)
+    weight_similarity  =  Weight_similarity(model, new_class_num, old_class_num, thresold)
 
     img_count = torch.zeros(new_class_num, device=torch.device('cuda:0'))
     similaritys = torch.zeros(new_class_num, old_class_num, device=torch.device('cuda:0'))
