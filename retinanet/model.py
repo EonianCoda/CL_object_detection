@@ -159,17 +159,17 @@ class ClassificationModel(nn.Module):
 
         return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
-    def next_state(self, num_new_classes, similarity):
+    def next_state(self, num_new_classes, similaritys):
         """increase the number of neurons in output layer
 
             Args:
                 num_new_classes: the number of new classes which will be added
         """
-        old_classes = self.num_classes
-        #old_filter_num = old_classes * self.num_anchors
+        num_old_class = self.num_classes
+        #old_filter_num = num_old_class * self.num_anchors
         
         self.num_classes += num_new_classes
-        old_output = self.output
+        old_output = self.output.cpu()
         self.output = nn.Conv2d(self.feature_size, self.num_anchors * self.num_classes, kernel_size=3, padding=1)
 
         # init output layer, this process is same as ResNet __init__()
@@ -180,19 +180,20 @@ class ClassificationModel(nn.Module):
         
         # copy old weight and bias    
         for i in range(self.num_anchors):
-            self.output.weight.data[i * self.num_classes:i * self.num_classes + old_classes,:,:,:] = old_output.weight.data[i * old_classes:(i+1) * old_classes,:,:,:] 
-            self.output.bias.data[i * self.num_classes:i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes:(i+1) * old_classes]
+            self.output.weight.data[i * self.num_classes:i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class:(i+1) * num_old_class,:,:,:] 
+            self.output.bias.data[i * self.num_classes:i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class:(i+1) * num_old_class]
         
         # copy weight from the most similar class
         for new_class_id in range(num_new_classes):
-            for idx, ratio in enumerate(similarity[new_class_id]):
-                self.output.weight.data[i * self.num_classes + new_class_id,:,:,:] += ratio * old_output.weight.data[i * old_classes + idx,:,:,:] 
-                self.output.bias.data[i * self.num_classes + new_class_id] += ratio * old_output.bias.data[i * old_classes + idx]
+            for old_class_id, ratio in enumerate(similaritys[new_class_id]):
+                for i in range(self.num_anchors):
+                    self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * self.num_classes + old_class_id,:,:,:] 
+                    self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * self.num_classes + old_class_id]
         # if copy_from_similar:
         #     # copy weight from the most similar class
         #     for i in range(self.num_anchors):
-        #         self.output.weight.data[i * self.num_classes + old_classes,:,:,:] = old_output.weight.data[i * old_classes + 3,:,:,:] 
-        #         self.output.bias.data[i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes + 3]
+        #         self.output.weight.data[i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class + 3,:,:,:] 
+        #         self.output.bias.data[i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class + 3]
             
         self.output.cuda()
         del old_output

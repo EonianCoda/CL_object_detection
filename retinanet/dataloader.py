@@ -60,7 +60,7 @@ class IL_dataset(Dataset):
         self.image_ids = imgIds
       
     def next_state(self):
-        debug_print('DataLoaderNext state!')
+        debug_print('Dataset Next state!')
 
         if self.cur_state == len(self.states):
             raise ValueError("Next state doesn't exist.")
