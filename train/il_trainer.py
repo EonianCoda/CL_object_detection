@@ -1,4 +1,5 @@
 # built-in
+from IL_method.weight_init import get_similarity
 import collections
 import os
 import pickle
@@ -113,16 +114,31 @@ class IL_Trainer(object):
             self.mas.calculate_importance(self.dataloader_train)
 
     def update_training_tools(self):
-        self.model.next_state(self.get_cur_state()['num_new_class'])
+
+        if self.params['sim_method'] != "large" or self.params['sim_method'] != "mean":
+            debug_print("{} Similarity init ".format(self.params['sim_method']))
+            similarity_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "similarity.pickle")
+            if os.path.isfile(similarity_file):
+                with open(similarity_file, 'rb') as f:
+                    similaritys = pickle.load(f) 
+            else:
+                similaritys = get_similarity(self.model, self.dataset_train)
+                with open(similarity_file, 'wb') as f:
+                    pickle.dump(similaritys, f)
+        else:
+            similaritys = None
+
+        self.model.next_state(self.get_cur_state()['num_new_class'], similaritys, self.params['sim_method'])
         self.optimizer = optim.Adam(self.model.parameters(), lr=1e-5)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
 
     def next_state(self):
         self.cur_state += 1
         self.update_mas()
-        self.update_training_tools()
         self.dataset_train.next_state()
+        self.update_training_tools()
         
+    
         if self.dataset_replay !=None:
             if self.cur_state == 1:
                 self.init_replay_dataset()
@@ -159,8 +175,7 @@ class IL_Trainer(object):
             self.model.cpu()
             del self.model
         if self.optimizer != None:
-            self.optimizer.cpu()
-            del self.optimizer
+            del self.optimizer  
         if self.mas != None:
             self.mas.destroy()
         self.params = None

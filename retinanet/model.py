@@ -159,7 +159,7 @@ class ClassificationModel(nn.Module):
 
         return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
-    def next_state(self, num_new_classes, similaritys):
+    def next_state(self, num_new_classes, similaritys, method="ratio"):
         """increase the number of neurons in output layer
 
             Args:
@@ -183,18 +183,23 @@ class ClassificationModel(nn.Module):
             self.output.weight.data[i * self.num_classes:i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class:(i+1) * num_old_class,:,:,:] 
             self.output.bias.data[i * self.num_classes:i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class:(i+1) * num_old_class]
         
-        # copy weight from the most similar class
-        for new_class_id in range(num_new_classes):
-            for old_class_id, ratio in enumerate(similaritys[new_class_id]):
-                for i in range(self.num_anchors):
-                    self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * num_old_class + old_class_id,:,:,:] 
-                    self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * num_old_class + old_class_id]
-        # if copy_from_similar:
-        #     # copy weight from the most similar class
-        #     for i in range(self.num_anchors):
-        #         self.output.weight.data[i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class + 3,:,:,:] 
-        #         self.output.bias.data[i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class + 3]
-            
+
+        if method == "mean":
+            # copy weight from the most similar class
+            for new_class_id in range(num_new_classes):
+                for old_class_id, ratio in enumerate(similaritys[new_class_id]):
+                    for i in range(self.num_anchors):
+                        self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * num_old_class + old_class_id,:,:,:] 
+                        self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * num_old_class + old_class_id]
+        elif method == "large":
+            max_idx = int(torch.argmax(similaritys[0]))
+            # copy weight from the most similar class
+            for i in range(self.num_anchors):
+                self.output.weight.data[i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class + max_idx,:,:,:] 
+                self.output.bias.data[i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class + max_idx]
+        else:
+            for i in range(self.num_anchors):
+                self.output.bias.data[i * self.num_classes + num_old_class] = -math.log((1.0 - prior) / prior)
         self.output.cuda()
         del old_output
 
@@ -459,14 +464,14 @@ class ResNet(nn.Module):
         return [finalScores, finalAnchorBoxesIndexes, finalAnchorBoxesCoordinates]
     
 
-    def next_state(self, num_new_classes:int, similarity):
+    def next_state(self, num_new_classes:int, similarity, method="mean"):
         """next state
         Args:
             num_new_classes: the number of new classes number
         """
         debug_print("Add new neurons in classification Moddel output layers!")
         self.num_classes += num_new_classes
-        self.classificationModel.next_state(num_new_classes, similarity)
+        self.classificationModel.next_state(num_new_classes, similarity, method)
 
 def create_retinanet(depth:int, num_classes, pretrained=True, **kwargs):
     """Construct retinanet

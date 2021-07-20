@@ -44,6 +44,9 @@ def get_similarity(model, dataset_train, thresold=THRESOLD):
         with torch.no_grad():
             scores, labels = weight_similarity.forward(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0),
                                                 data['annot'].cuda().unsqueeze(dim=0))
+            if not scores:
+                continue
+
             labels = labels.long() - old_class_num
 
             similarity.fill_(0)
@@ -62,6 +65,9 @@ def get_similarity(model, dataset_train, thresold=THRESOLD):
 
     dataset_train.transform = transforms.Compose([Normalizer(), Augmenter(), Resizer()])
 
+    # normal, discard very low category
+    similaritys = torch.where(similaritys > 0.05, similaritys, torch.zeros(similaritys.shape, device=torch.device('cuda:0')))
+    similaritys = similaritys / torch.sum(similaritys)
     similaritys = similaritys.cpu()
     return similaritys
 
@@ -86,7 +92,7 @@ class Weight_similarity(object):
         classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4)
 
         if bbox_annotation.shape[0] == 0:  
-            return
+            return None, None
         
 
         IoU = calc_iou(anchors[0, :, :], bbox_annotation[:, :4]) # shape=(num_anchors, num_annotations)
