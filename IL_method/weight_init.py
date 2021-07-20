@@ -1,10 +1,7 @@
 
 import torch
-import torch.nn as nn
 from torchvision import transforms
 from retinanet.dataloader import Resizer, Augmenter, Normalizer
-
-from train.il_trainer import IL_Trainer
 
 def calc_iou(a, b):
     area = (b[:, 2] - b[:, 0]) * (b[:, 3] - b[:, 1])
@@ -25,14 +22,13 @@ def calc_iou(a, b):
 
     return IoU
 
-def get_similarity(il_trainer:IL_Trainer, new_state:int):
-    dataset_train = il_trainer.dataset_train
+def get_similarity(model, dataset_train):
     new_class_num = len(dataset_train.seen_class_id)
-    old_class_num = len(il_trainer.model.num_classes)
+    old_class_num = len(model.num_classes)
 
     # not use Augmenter
     dataset_train.transform = transforms.Compose([Normalizer(), Resizer()])
-    similarity =  Weight_similarity(il_trainer, new_class_num, old_class_num)
+    similarity =  Weight_similarity(model, new_class_num, old_class_num)
     
     img_count = torch.zeros(new_class_num)
     similaritys = torch.zeros(new_class_num, old_class_num)
@@ -65,17 +61,16 @@ def get_similarity(il_trainer:IL_Trainer, new_state:int):
 
 
 class Weight_similarity(object):
-    def __init__(self, il_trainer, new_class_num:int, old_class_num:int):
-        self.il_trainer = il_trainer
+    def __init__(self, new_class_num:int, old_class_num:int):
         self.model = self.il_trainer.model
         self.new_class_num = new_class_num
         self.old_class_num = old_class_num
 
     def forward(self, img_batch, annotations):
-        classifications, _ , anchors = self.il_trainer.model(img_batch, 
-                                                            return_feat=False, 
-                                                            return_anchor=True, 
-                                                            enable_act=True)
+        classifications, _ , anchors = self.model(img_batch, 
+                                                    return_feat=False, 
+                                                    return_anchor=True, 
+                                                    enable_act=True)
     
         classification = classifications[0, :, :]
         bbox_annotation = annotations[0, :, :]
