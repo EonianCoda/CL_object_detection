@@ -7,6 +7,7 @@ import cv2
 import pickle
 import os
 from torchvision import transforms
+from retinanet.dataloader import Normalizer, Resizer, Augmenter
 
 THRESOLD = 0.25
 
@@ -58,7 +59,7 @@ class Herd_sampler(object):
 
     def sample(self, per_num):
         dataset = self.il_trainer.dataset_train
-        self.per_num = per_num
+        self.per_num = int(per_num)
 
         # # if the exam
         # if os.path.isfile(self.sample_file_name):
@@ -66,17 +67,22 @@ class Herd_sampler(object):
         #         examplar_dict, examplar_list = pickle.load(f)
         #         self.examplar_dict, self.examplar_list = examplar_dict, examplar_list
 
+
+        # assign class for images
+        classified_ratios = self._cal_foreground_ratio()
+        classified_imgs = self._discard_low_ratio(classified_ratios, self.ratio_thresold) # cat_id => img_ids
+        reverse_classified_imgs = defaultdict(list) # img_id => cat_id
+
+
+        
+        for img_id in dataset.image_ids:
+            for cat_id, img_ids in classified_imgs.items():
+                if img_id in img_ids:
+                    reverse_classified_imgs[img_id].append(cat_id)
+
+        dataset.transform = transforms.Compose([Normalizer(),Resizer()])
         # calculate the mean feature for each category
         if not os.path.isfile(self.mean_file_name):
-            # assign class for images
-            classified_ratios = self._cal_foreground_ratio()
-            classified_imgs = self._discard_low_ratio(classified_ratios, self.ratio_thresold) # cat_id => img_ids
-            reverse_classified_imgs = defaultdict(list) # img_id => cat_id
-
-            for img_id in dataset.image_ids:
-                for cat_id, img_ids in classified_imgs.items():
-                    if img_id in img_ids:
-                        reverse_classified_imgs[img_id].append(cat_id)
             mean_features = self._cal_mean_feature(classified_imgs, reverse_classified_imgs)
 
             for cat_id in mean_features.keys():
@@ -91,17 +97,18 @@ class Herd_sampler(object):
             for cat_id in mean_features.keys():
                 mean_features[cat_id] = mean_features[cat_id].cuda()
 
-            scores = self._cal_difference(self, mean_features, classified_imgs, reverse_classified_imgs)
+            scores = self._cal_difference(mean_features, classified_imgs, reverse_classified_imgs)
             with open(self.scores_file_name,'wb') as f:
                 pickle.dump(scores, f)
         else:
             with open(self.scores_file_name,'rb') as f:
-                scores = pickle.laod(f)
+                scores = pickle.load(f)
 
         examplar_dict, examplar_list = self._sample_by_scores(scores, per_num)
         self.update_examplar(examplar_dict, examplar_list)
         # self.save_examplar()
 
+        dataset.transform = transforms.Compose([Normalizer(),Augmenter(), Resizer()])
         # destroy
         del mean_features
     def save_examplar(self):
@@ -117,13 +124,13 @@ class Herd_sampler(object):
             named_examplar[cat_name] = examplar
         return named_examplar
 
-    def gen_examplar_image(self, saved=True):
+    def save_examplar_image(self, saved=True):
         """generate the image which contains all examplars
             Args:
                 saved: whether save the figute or return, default=True, False mean return the figure
         """
         img_path = self.il_trainer.dataset_train.image_path
-        num_classes = self.examplar_list / self.per_num
+        num_classes = int(len(self.examplar_list) / self.per_num)
         fig = plt.figure(figsize=(4*self.per_num,3.5*num_classes), constrained_layout=True)
         gs = fig.add_gridspec(num_classes, self.per_num)
 
