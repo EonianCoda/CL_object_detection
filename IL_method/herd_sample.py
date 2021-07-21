@@ -81,10 +81,10 @@ class Herd_sampler(object):
 
             for cat_id in mean_features.keys():
                 mean_features[cat_id] = mean_features[cat_id].cpu()
-            with open(mean_file_name,'wb') as f:
+            with open(self.mean_file_name,'wb') as f:
                 pickle.dump(mean_features, f)
         else:
-            with open(mean_file_name,'rb') as f:
+            with open(self.mean_file_name,'rb') as f:
                 mean_features = pickle.load(f)
         
         if not os.path.isfile(self.scores_file_name):
@@ -92,10 +92,10 @@ class Herd_sampler(object):
                 mean_features[cat_id] = mean_features[cat_id].cuda()
 
             scores = self._cal_difference(self, mean_features, classified_imgs, reverse_classified_imgs)
-            with open(scores_file_name,'wb') as f:
+            with open(self.scores_file_name,'wb') as f:
                 pickle.dump(scores, f)
         else:
-            with open(scores_file_name,'rb') as f:
+            with open(self.scores_file_name,'rb') as f:
                 scores = pickle.laod(f)
 
         examplar_dict, examplar_list = self._sample_by_scores(scores, per_num)
@@ -241,6 +241,8 @@ class Herd_sampler(object):
         return features
 
     def _cal_mean_feature(self, classified_imgs, reverse_classified_imgs):
+        """calculate the mean feature for each category
+        """
         
         mean_features = {}
         dataset = self.il_trainer.dataset_train
@@ -255,7 +257,7 @@ class Herd_sampler(object):
             
             data = dataset[i]
             features = self._cal_feature(model, data)
-            for cat_id in reverse_cat_img_info[img_id]:
+            for cat_id in reverse_classified_imgs[img_id]:
                 if mean_features.get(cat_id) == None:
                     mean_features[cat_id] = features.clone() / len(classified_imgs[cat_id])
                 else:
