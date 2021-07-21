@@ -272,22 +272,31 @@ class Params(object):
             
         torch.save(data, save_path)
 
-    def print_il_info(self):
+
+    def _il_keyword_check(self, name):
         keyword = ['distill', 
             'sample', 
             'mas', 
             'warm',
             'enhance',
             'ignore',
-            'decrease_positive']
-        def keyword_check(name:str):
-            for word in keyword:
-                if word in name:
-                    return True
-            return False
+            'decrease_positive',
+            'method']
+  
+        for word in keyword:
+            if word in name:
+                return True
+        return False
 
+    def get_il_info(self):
+        result = dict()
         for key, value in self._params.items():
-            if keyword_check(key):
+            if self._il_keyword_check(key):
+                result[key] = value
+        return result
+    def print_il_info(self):
+        for key, value in self._params.items():
+            if self._il_keyword_check(key):
                 if isinstance(value, str):
                     print('{} = "{}"'.format(key, value))
                 else:

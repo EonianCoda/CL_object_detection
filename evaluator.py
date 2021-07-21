@@ -8,6 +8,7 @@ from collections import defaultdict
 import numpy as np
 import pickle
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime 
 # torch
 import torch
 from torchvision import transforms
@@ -29,7 +30,46 @@ class Evaluator(Params):
         self.init_dataset()
         self.results = {}
         self.collect_result = self['output_csv']
+        if self['timestamp']:
+            self.new_folder_name = datetime.now().strftime("%Y-%m-%d-%H-%M")
+    
+
+    def get_tensorbord_info(self):
         
+        results = dict()
+        ap_declines = defaultdict(list)
+        recall_declines = defaultdict(list)
+        file_path = os.path.join(self['root_dir'], 'val_result')
+        with open(os.path.join(file_path, 'upper_bound.pickle'), 'rb') as f:
+            upper_bound = pickle.load(f)
+
+        cat_names = self.states[self['state']]['knowing_class']['name']
+        epochs = [epoch for epoch in self.results.keys()]
+        epochs.sort()
+        cat_num = len(self.dataset.seen_class_id)
+
+        # result
+        for idx in range(cat_num):
+            cat_name = cat_names[idx]
+            upper_bound_ap = upper_bound[cat_name]['ap']
+            upper_bound_recall = upper_bound[cat_name]['recall']
+            for epoch in epochs:
+                ap = self.results[epoch]['precision'][idx]
+                recall = self.results[epoch]['recall'][idx]
+                ap_declines[epoch].append(upper_bound_ap - ap)
+                recall_declines[epoch].append(upper_bound_recall - recall)
+
+        # sum of old Decline
+        old_class_num = len(self.states[self['state'] - 1]['knowing_class']['id'])
+        for epoch in epochs:
+            results[epoch] = dict()
+            results[epoch]['sum_ap_decline'] = sum(ap_declines[epoch][:old_class_num]) * 100
+            results[epoch]['sum_recall_decline'] = sum(recall_declines[epoch][:old_class_num]) * 100
+            results[epoch]['new_class_ap'] = self.results[epoch]['precision'][old_class_num]
+            results[epoch]['new_class_recall'] = self.results[epoch]['recall'][old_class_num]
+            results[epoch]['pred_ratio'] = self.results[epoch]['pred_num'] / self.results[epoch]['real_num']
+        return results
+
     def output_csv_file(self):
         if self.results == {}:
             return
@@ -218,6 +258,9 @@ class Evaluator(Params):
         create_dir(file_path)
         file_path = os.path.join(file_path, 'state{}'.format(self['state']))
         create_dir(file_path)
+        if self['timestamp']:
+            file_path = os.path.join(file_path, self.new_folder_name)
+            create_dir(file_path)
 
         if epoch != -1:
             file_name = '{}_results_epoch{}.json'.format(self['dataset'], epoch)

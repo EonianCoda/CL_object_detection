@@ -1,5 +1,7 @@
 # built-in
 import argparse
+import os
+import shutil
 # torch
 import torch
 from evaluator import Evaluator, multi_evaluation
@@ -30,6 +32,7 @@ def get_val_parser(args=None):
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument('--just_val', help='whether predict or not',type=str2bool, default=False)
     parser.add_argument('--output_csv', help='whether output the csv file, default = True', type=str2bool, default=True)
+    parser.add_argument('--timestamp',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
 
     # always fixed
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=DEFAULT_DEPTH)
@@ -44,6 +47,12 @@ def get_val_parser(args=None):
 def validation(evaluator:Evaluator):
     epochs = list(set(evaluator['epoch']))
 
+    # copy params.txt
+    ckp_path = os.path.join(evaluator['ckp_path'], 'state{}'.format(evaluator['state']))
+    params_file = os.path.join(ckp_path, 'params.txt')
+    if os.path.isfile(params_file):
+        shutil.copy(params_file, os.path.join(evaluator.get_result_path(-1), 'params.txt'))
+    
     print("Evaluate at state{} Epoch({})".format(evaluator['state'], evaluator['epoch']))
 
     if evaluator['just_val']:
@@ -52,6 +61,21 @@ def validation(evaluator:Evaluator):
             evaluator.do_evaluation(epoch)
     else:
         multi_evaluation(evaluator, epochs)
+
+
+    if evaluator['timestamp']:
+        from torch.utils.tensorboard import SummaryWriter
+
+        logdir = evaluator.new_folder_name
+        with SummaryWriter(logdir) as w:
+            hparams = evaluator.get_il_info()
+            eval_results = evaluator.get_tensorbord_info()
+
+            for epoch in eval_results.keys():
+                hparams['epoch'] = epoch
+
+                w.add_hparams(hparams,
+                              eval_results[epoch])
 
     if evaluator['output_csv']:
         evaluator.output_csv_file()
