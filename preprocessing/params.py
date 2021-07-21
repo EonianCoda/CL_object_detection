@@ -293,7 +293,10 @@ class Params(object):
         result = dict()
         for key, value in self._params.items():
             if self._il_keyword_check(key):
-                result[key] = value
+                if isinstance(value, list):
+                    result[key] = ",".join(value)
+                else:
+                    result[key] = value
         return result
     def print_il_info(self):
         for key, value in self._params.items():
