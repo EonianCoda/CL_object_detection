@@ -6,8 +6,9 @@ import matplotlib.pyplot as plt
 import cv2
 import pickle
 import os
+from torch.utils import data
 from torchvision import transforms
-from retinanet.dataloader import Normalizer, Resizer, Augmenter
+from retinanet.dataloader import IL_dataset, Normalizer, Resizer, Augmenter
 
 THRESOLD = 0.25
 
@@ -41,16 +42,9 @@ class Herd_sampler(object):
         self.il_trainer = il_trainer
         self.ratio_thresold = THRESOLD
 
-        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.il_trainer.cur_state))
-
-        # self.sample_file_name = os.path.join(path, 'sample{}.pickle'.format(self.ratio_thresold))
-        self.mean_file_name = os.path.join(path, 'mean_feature{}.pickle'.format(self.ratio_thresold))
-        self.scores_file_name = os.path.join(path, 'classified_scores{}.pickle'.format(self.ratio_thresold))
-
         self.feature_resizer = Feature_resizer()
         self.examplar_dict = defaultdict(list)
         self.examplar_list = list()
-
 
     def update_examplar(self,examplar_dict, examplar_list):
         for cat_id, img_ids in examplar_dict.items():
@@ -58,9 +52,19 @@ class Herd_sampler(object):
         self.examplar_list.extend(examplar_list)
 
     def sample(self, per_num):
-        dataset = self.il_trainer.dataset_train
-        self.per_num = int(per_num)
+        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.il_trainer.cur_state - 1))
+        # self.sample_file_name = os.path.join(path, 'sample{}.pickle'.format(self.ratio_thresold))
+        self.mean_file_name = os.path.join(path, 'mean_feature{}.pickle'.format(self.ratio_thresold))
+        self.scores_file_name = os.path.join(path, 'classified_scores{}.pickle'.format(self.ratio_thresold))
 
+
+
+        dataset = IL_dataset(self.il_trainer.params,
+                            transform=transforms.Compose([Normalizer(), Resizer()]),
+                            start_state=self.il_trainer.cur_state - 1)
+        cur_dataset = self.il_trainer.dataset_train
+        self.il_trainer.dataset_train = dataset
+        self.per_num = int(per_num)
         # # if the exam
         # if os.path.isfile(self.sample_file_name):
         #     with open(self.sample_file_name, 'rb') as f:
@@ -73,14 +77,11 @@ class Herd_sampler(object):
         classified_imgs = self._discard_low_ratio(classified_ratios, self.ratio_thresold) # cat_id => img_ids
         reverse_classified_imgs = defaultdict(list) # img_id => cat_id
 
-
-        
         for img_id in dataset.image_ids:
             for cat_id, img_ids in classified_imgs.items():
                 if img_id in img_ids:
                     reverse_classified_imgs[img_id].append(cat_id)
 
-        dataset.transform = transforms.Compose([Normalizer(),Resizer()])
         # calculate the mean feature for each category
         if not os.path.isfile(self.mean_file_name):
             mean_features = self._cal_mean_feature(classified_imgs, reverse_classified_imgs)
@@ -108,19 +109,21 @@ class Herd_sampler(object):
         self.update_examplar(examplar_dict, examplar_list)
         # self.save_examplar()
 
-        dataset.transform = transforms.Compose([Normalizer(),Augmenter(), Resizer()])
         # destroy
         del mean_features
-    def save_examplar(self):
-        with open(self.sample_file_name, 'wb') as f:
-            pickle.dump( (self.examplar_dict, self.examplar_list), f)
+        del dataset
+        self.il_trainer.dataset_train = cur_dataset
+
+    # def save_examplar(self):
+    #     with open(self.sample_file_name, 'wb') as f:
+    #         pickle.dump( (self.examplar_dict, self.examplar_list), f)
 
     def get_named_examplar(self):
-        dataset_train = self.il_trainer.dataset_train
+        dataset = self.il_trainer.dataset_train
         named_examplar = {}
         for cat_id, examplar in self.examplar_dict.items():
-            cat_id = dataset_train.label_to_coco_label(cat_id)
-            cat_name = dataset_train.coco.catId_to_name(cat_id)[0]
+            cat_id = dataset.label_to_coco_label(cat_id)
+            cat_name = dataset.coco.catId_to_name(cat_id)[0]
             named_examplar[cat_name] = examplar
         return named_examplar
 
@@ -145,7 +148,7 @@ class Herd_sampler(object):
             row += 1
         
         if saved:
-            path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.il_trainer.cur_state))
+            path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.il_trainer.cur_state - 1))
             file_name = os.path.join(path, "examplar.png")
             plt.savefig(file_name)
         else:
@@ -172,12 +175,11 @@ class Herd_sampler(object):
         def distance(mean, x):
             return float(torch.norm(mean - x))
 
-
         dataset = self.il_trainer.dataset_train
         model = self.il_trainer.model
 
         all_classes = set(self.il_trainer.params.states[-1]['knowing_class']['id'])
-        cur_knowing_classes = set(self.il_trainer.params.states[self.il_trainer.cur_state]['knowing_class']['id'])
+        cur_knowing_classes = set(self.il_trainer.params.states[self.il_trainer.cur_state - 1]['knowing_class']['id'])
         future_cat_ids = list(all_classes - cur_knowing_classes)
         future_img_ids = dataset.coco.get_imgs_by_cats(future_cat_ids)
 
