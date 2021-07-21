@@ -1,5 +1,4 @@
 # built-in
-from sys import modules
 import torch
 import numpy as np
 from collections import defaultdict
@@ -7,9 +6,7 @@ import matplotlib.pyplot as plt
 import cv2
 import pickle
 import os
-from torch.utils.data import dataset
 from torchvision import transforms
-from train.il_trainer import IL_Trainer
 
 THRESOLD = 0.25
 
@@ -39,7 +36,7 @@ class Feature_resizer(object):
     
 
 class Herd_sampler(object):
-    def __init__(self,il_trainer:IL_Trainer):
+    def __init__(self,il_trainer):
         self.il_trainer = il_trainer
         self.ratio_thresold = THRESOLD
 
