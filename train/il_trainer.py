@@ -97,6 +97,8 @@ class IL_Trainer(object):
             self.dataset_replay.reset_by_state(self.cur_state)
 
     def update_replay_dataloader(self):
+        if self.params['sample_num'] <= 0:
+            return
         sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
         self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
@@ -123,7 +125,7 @@ class IL_Trainer(object):
     def update_training_tools(self):
         """update model, optimizer and scheduler
         """
-        if self.params['sim_method'] != "large" or self.params['sim_method'] != "mean":
+        if self.params['sim_method'] == "large" or self.params['sim_method'] == "mean":
             debug_print("{} Similarity init ".format(self.params['sim_method']))
             similarity_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "similarity.pickle")
             if os.path.isfile(similarity_file):

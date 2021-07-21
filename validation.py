@@ -1,6 +1,7 @@
 # built-in
 import argparse
 import os
+import pickle
 import shutil
 # torch
 import torch
@@ -66,11 +67,13 @@ def validation(evaluator:Evaluator):
     if evaluator['timestamp']:
         from torch.utils.tensorboard import SummaryWriter
 
-
-            
+        evaluator['timestamp'] = False
         logdir = os.path.join(evaluator.get_result_path(-1),'runs', evaluator.new_folder_name)
         with SummaryWriter(logdir) as w:
-            hparams = evaluator.get_il_info()
+            with open(os.path.join(ckp_path, 'params.pickle'), 'rb') as f:
+                hparams = pickle.load(f)
+
+            # hparams = evaluator.get_il_info()
             eval_results = evaluator.get_tensorbord_info()
 
             for epoch in eval_results.keys():

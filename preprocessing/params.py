@@ -1,5 +1,6 @@
 # import collections
 
+import pickle
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
 from retinanet.model import create_retinanet
@@ -304,6 +305,9 @@ class Params(object):
 
     def output_params(self, state):
         output_path = os.path.join(self['ckp_path'], "state{}".format(state))
+        with open(os.path.join(output_path, "params.pickle"), 'wb') as f:
+            pickle.dump(self.get_il_info(), f)
+
         with open(os.path.join(output_path, "params.txt"), 'w') as f:
             lines = []
             
