@@ -66,7 +66,9 @@ def validation(evaluator:Evaluator):
     if evaluator['timestamp']:
         from torch.utils.tensorboard import SummaryWriter
 
-        logdir = evaluator.new_folder_name
+
+            
+        logdir = os.path.join(evaluator.get_result_path(-1),'runs', evaluator.new_folder_name)
         with SummaryWriter(logdir) as w:
             hparams = evaluator.get_il_info()
             eval_results = evaluator.get_tensorbord_info()
