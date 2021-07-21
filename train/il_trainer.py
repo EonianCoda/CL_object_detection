@@ -51,6 +51,7 @@ class IL_Trainer(object):
         if self.cur_state >= 1:
             self.init_agem()
             self.init_replay_dataset()
+            self.update_replay_dataloader()
             self.update_prev_model()
             self.update_mas()
 
