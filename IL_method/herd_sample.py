@@ -188,7 +188,7 @@ class Herd_sampler(object):
                 scores[cat_id][img_id] = distance(features, mean_features[cat_id])
         return scores
         
-    def _discard_low_ratio(ratios, thresold):
+    def _discard_low_ratio(self, ratios, thresold):
         classified_imgs = defaultdict(list)
         for img_id, ratio in ratios.items():
             for cat_id, foreground_ratio in ratio.items():
