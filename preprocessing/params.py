@@ -294,7 +294,7 @@ class Params(object):
         for key, value in self._params.items():
             if self._il_keyword_check(key):
                 if isinstance(value, list):
-                    result[key] = ",".join(value)
+                    result[key] = ",".join([str(v) for v in value])
                 else:
                     result[key] = value
         return result
