@@ -90,15 +90,8 @@ class IL_Trainer(object):
         if self.params['sample_method'] == 'herd':
             
             self.herd_sampler = Herd_sampler(self)
-            cur_dataset_train = self.dataset_train
-            old_dataset_train = IL_dataset(self.params,
-                                        transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]),
-                                        start_state=self.cur_state - 1)
-            self.dataset_train = old_dataset_train
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
-            self.dataset_train = cur_dataset_train
-            del old_dataset_train
         else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
 
