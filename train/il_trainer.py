@@ -1,5 +1,5 @@
 # built-in
-from IL_method.weight_init import get_similarity
+
 import collections
 import os
 import pickle
@@ -16,6 +16,8 @@ from preprocessing.debug import debug_print, DEBUG_FLAG
 # IL
 from IL_method.mas import MAS
 from IL_method.agem import A_GEM
+from IL_method.herd_sample import Herd_sampler
+from IL_method.weight_init import get_similarity
 
 
 class IL_Trainer(object):
@@ -75,21 +77,24 @@ class IL_Trainer(object):
         self.prev_model.cuda()
 
     def init_replay_dataset(self):
+        """init reaply dataset if params['sample_num'] > 0
+        """
         # Replay dataloader
         if self.params['sample_num'] <= 0:
             return
         
         self.dataset_replay = Replay_dataset(self.params,
                                             transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
-        custom_ids = []
-        # custom sample
+
+        # if self.params['sample_method'] == 'herd':
         if self.params['sample_method'] == 'herd':
-            with open(os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1), 'examplar.pickle'), 'rb') as f:
-                examplar = pickle.load(f)
-            # examplar = ['{:06d}'.format(img_id) for img_id in examplar]
-            self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=examplar)
-        else:
+            self.herd_sampler = Herd_sampler(self)
+            self.herd_sampler.sample(self.params['sample_num'])
+            self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
+        else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
+
+    def update_replay_dataloader(self):
         sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
         self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
@@ -114,7 +119,8 @@ class IL_Trainer(object):
             self.mas.calculate_importance(self.dataloader_train)
 
     def update_training_tools(self):
-
+        """update model, optimizer and scheduler
+        """
         if self.params['sim_method'] != "large" or self.params['sim_method'] != "mean":
             debug_print("{} Similarity init ".format(self.params['sim_method']))
             similarity_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "similarity.pickle")
@@ -142,8 +148,10 @@ class IL_Trainer(object):
         if self.dataset_replay !=None:
             if self.cur_state == 1:
                 self.init_replay_dataset()
+
             else:
                 self.dataset_replay.next_state()
+            self.update_replay_dataloader()
         if self.cur_state == 1:
             self.init_agem()
         

@@ -191,27 +191,14 @@ class Replay_dataset(IL_dataset):
 
 
     def sample_imgs(self, sample_CIDs:list, limit_imgIds:list):
-        # read large loss checkpoint
-        if self.sample_method == "large_loss":
-            
-            large_loss_ckp = os.path.join(self.large_loss_ckp_path, "state{}".format(self.cur_state - 1), 'large_losses.pickle')
-            with open(large_loss_ckp, 'rb') as f:
-                losses = pickle.load(f)
-
         for CID in sample_CIDs:
             imgIds = self.coco.get_imgs_by_cats(CID)
             imgIds = list(set(imgIds) - limit_imgIds - set(self.image_ids))
             if imgIds == []:
                 raise(ValueError('Class id:{} contained zero pictures different from other class in current state.'.format(CID)))
 
-            # large loss sample,(use past loss to sample)
-            if self.sample_method == 'large_loss':
-                cur_losses = [losses[img_id][2] for img_id in imgIds]
-                ids = sorted(range(len(cur_losses)), key=lambda k: cur_losses[k])
-                self.image_ids.extend([imgIds[id_] for id_ in ids[len(ids) - self.per_num:]])
             # random sample
-            else:
-                self.image_ids.extend(random.sample(imgIds, self.per_num))
+            self.image_ids.extend(random.sample(imgIds, self.per_num))
 
     def reset_by_state(self, state:int):
         """ use state index to reset imgIds
@@ -253,32 +240,6 @@ class Replay_dataset(IL_dataset):
 
         self.sample_imgs(self.seen_class_id, set(self.coco.get_imgs_by_cats(future_CIDs)))
         
-    # def load_annotations(self, image_index):
-    #     # get ground truth annotations
-    #     annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
-    #     annotations     = np.zeros((0, 5))
-
-    #     # some images appear to miss annotations (like image with id 257034)
-    #     if len(annotations_ids) == 0:
-    #         return annotations
-
-    #     # parse annotations
-    #     coco_annotations = self.coco.loadAnns(annotations_ids)
-    #     for idx, ann in enumerate(coco_annotations):
-    #         # some annotations have basically no width / height, skip them
-    #         if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
-    #             continue
-
-    #         annotation        = np.zeros((1, 5))
-    #         annotation[0, :4] = ann['bbox']
-    #         annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
-    #         annotations       = np.append(annotations, annotation, axis=0)
-
-    #     # transform from [x, y, w, h] to [x1, y1, x2, y2]
-    #     annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
-    #     annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
-
-    #     return annotations
   
 def collater(data):
 

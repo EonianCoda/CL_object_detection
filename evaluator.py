@@ -109,17 +109,6 @@ class Evaluator(Params):
         with open(os.path.join(file_path, file_name), 'w') as f:
             f.write(lines)
 
-    # def get_model(self, epoch=None):
-    #     """
-    #         Args:
-    #             epoch: int, -1 mean auto search the max epoch in this state , None mean not readcheckpoint default = None , 
-    #     """
-    #     model = create_retinanet(self['depth'], self.states[self['state']]['num_knowing_class'])
-    #     if epoch == None:
-    #         return model
-    #     self.load_model(self['state'], epoch, model)
-    #     return model
-
     def evaluation_check(self, epochs):
         """Before donig evaluation, check if the checkpoint file exists
             Args:

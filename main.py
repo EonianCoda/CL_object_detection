@@ -107,7 +107,7 @@ def get_parser(args=None):
     parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
 
     parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd, 0 mean no sample, default = 0', type=int, default=0)
-    parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','large_loss','custom'", default="custom")
+    parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','herd'", default="herd")
 
     parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     parser.add_argument('--mas_file', help='the name of mas file name, default="MAS"', default="MAS")
