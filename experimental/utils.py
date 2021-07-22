@@ -1,35 +1,4 @@
 import torch
-# from retinanet.model import ResNet
-# from preprocessing.params import Params
-
-
-# VAL_ARG_SAMPLE = "--dataset voc2007 \
-#                     --state 1 \
-#                     --epoch 30 \
-#                     --scenario 15 1 \
-#                     --just_val True"
-                    
-# TRAIN_ARG_SAMPLE = "--dataset voc2007 \
-#                     --start_epoch 1 \
-#                     --end_epoch 100 \
-#                     --start_state 0 \
-#                     --end_state 0 \
-#                     --scenario 10 10\
-#                     --print_il_info True\
-#                     --debug False \
-#                     --record False"
-
-def text_to_args(args):
-    """convert text to args, in order to create Params
-    """
-    args = [arg.rstrip() for arg in args.split('--') if arg != '']
-    result_arg = []
-    for arg in args:
-        texts = arg.split(' ')
-        result_arg.append('--' + texts[0])
-        for i in range(1, len(texts)):
-            result_arg.append(texts[i])
-    return result_arg
 
 
 class Experimental_tool(object):
@@ -49,9 +18,7 @@ class Experimental_tool(object):
     def get_parameters(self, name):
         return self.parameters[name]
 
-    
-
-    def get_classed_classifier(self):
+    def get_classified_classifier(self):
         num_anchors = self.model.classificationModel.num_anchors
         output_weight = self.get_parameters("classificationModel.output.weight")
         output_bias = self.get_parameters("classificationModel.output.bias")
@@ -70,7 +37,3 @@ class Experimental_tool(object):
             classed_parameters[class_idx]['bias'] = torch.tensor(classed_parameters[class_idx]['bias'])
 
         return classed_parameters
-            # self.output.bias.data[i * self.num_classes:i * self.num_classes + old_classes] = old_output.bias.data[i * old_classes:(i+1) * old_classes]
-            
-
-

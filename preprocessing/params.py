@@ -1,6 +1,7 @@
 # import collections
 
 import pickle
+from posix import EX_OSFILE
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
 from retinanet.model import create_retinanet
@@ -290,13 +291,65 @@ class Params(object):
         return False
 
     def get_il_info(self):
-        result = dict()
-        for key, value in self._params.items():
-            if self._il_keyword_check(key):
-                if isinstance(value, list):
-                    result[key] = ",".join([str(v) for v in value])
+        def to_str(value):
+            if isinstance(value, list):
+                return ",".join([str(v) for v in value])
+            elif isinstance(value, bool):
+                if value:
+                    return True
                 else:
-                    result[key] = value
+                    return False
+            else:
+                return value
+        result = dict()
+
+        # warm-up
+        result['warm_stage'] = to_str(self['warm_stage'])
+        if self['warm_stage'] == 0:
+            result['warm_epoch'] = "None"
+            result['warm_layers'] = "None"
+        else:
+            result['warm_epoch'] = to_str(self['warm_epoch']) 
+            result['warm_layers'] = to_str(self['warm_layers']) 
+        # distill
+        result['distill'] = to_str(self['distill'])
+        if self['distill']:
+            result['distill_logits'] = to_str(self['distill_logits'])
+            result['distill_logits_on'] = to_str(self['distill_logits_on'])
+            result['distill_logits_bg_loss'] = to_str(self['distill_logits_bg_loss'])
+        else:
+            result['distill_logits'] = "None"
+            result['distill_logits_on'] = "None"
+            result['distill_logits_bg_loss'] = "None"
+
+        # Sample
+        result['sample_num'] = to_str(self['sample_num'])
+        if self['sample_num'] > 0:
+            result['sample_method'] = to_str(self['sample_method'])
+        else:
+            result['sample_method'] = "None"
+        
+        # Mas
+        result['mas'] = to_str(self['mas'])
+        # A-gem
+        result['agem'] = to_str(self['agem'])
+
+
+        # Experimental params
+        result['ignore_ground_truth'] = to_str(self['ignore_ground_truth'])
+        result['decrease_positive'] = to_str(self['decrease_positive'])
+
+        result['enhance_error'] = to_str(self['enhance_error'])
+        if self['enhance_error']:
+            result['enhance_error_method'] = to_str(self['enhance_error_method'])
+        else:
+            result['enhance_error_method'] = "None"
+
+        result['ignore_ground_truth'] = to_str(self['ignore_ground_truth'])
+        result['init_method'] = to_str(self['init_method'])
+        result['ignore_past_class'] = to_str(self['ignore_past_class'])
+          
+
         return result
     def print_il_info(self):
         for key, value in self._params.items():
@@ -307,8 +360,11 @@ class Params(object):
                     print('{} = {}'.format(key, value))
 
     def output_params(self, state):
+
         output_path = os.path.join(self['ckp_path'], "state{}".format(state))
-        with open(os.path.join(output_path, "params.pickle"), 'wb') as f:
+
+        # output il_hparams for validation
+        with open(os.path.join(output_path, "il_hparams.pickle"), 'wb') as f:
             pickle.dump(self.get_il_info(), f)
 
         with open(os.path.join(output_path, "params.txt"), 'w') as f:

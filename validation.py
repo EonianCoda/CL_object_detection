@@ -33,7 +33,9 @@ def get_val_parser(args=None):
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument('--just_val', help='whether predict or not',type=str2bool, default=False)
     parser.add_argument('--output_csv', help='whether output the csv file, default = True', type=str2bool, default=True)
-    parser.add_argument('--timestamp',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
+    
+    parser.add_argument('--new_folder',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
+    parser.add_argument('--specific_folder', default="None")
 
     # always fixed
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=DEFAULT_DEPTH)
@@ -56,6 +58,7 @@ def validation(evaluator:Evaluator):
     
     print("Evaluate at state{} Epoch({})".format(evaluator['state'], evaluator['epoch']))
 
+    # just read the result json file, not to do prediction on test datset
     if evaluator['just_val']:
         evaluator.validation_check(epochs)
         for epoch in epochs:
@@ -64,23 +67,21 @@ def validation(evaluator:Evaluator):
         multi_evaluation(evaluator, epochs)
 
 
-    if evaluator['timestamp']:
+    # record testing result in tensorboard
+    if evaluator['new_folder']:
         from torch.utils.tensorboard import SummaryWriter
 
-        evaluator['timestamp'] = False
+        evaluator['new_folder'] = False
         logdir = os.path.join(evaluator.get_result_path(-1),'runs', evaluator.new_folder_name)
         with SummaryWriter(logdir) as w:
-            with open(os.path.join(ckp_path, 'params.pickle'), 'rb') as f:
+            with open(os.path.join(ckp_path, 'il_hparams.pickle'), 'rb') as f:
                 hparams = pickle.load(f)
-
-            # hparams = evaluator.get_il_info()
             eval_results = evaluator.get_tensorbord_info()
-
             for epoch in eval_results.keys():
                 hparams['epoch'] = epoch
-
                 w.add_hparams(hparams,
                               eval_results[epoch])
+        evaluator['new_folder'] = True
 
     if evaluator['output_csv']:
         evaluator.output_csv_file()

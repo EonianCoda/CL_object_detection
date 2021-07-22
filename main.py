@@ -121,7 +121,7 @@ def get_parser(args=None):
     parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
     parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
     parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
-    parser.add_argument('--sim_method', help='the method for new classifier init, must be "mean","large","None"', default="mean") 
+    parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean") 
 
 
     # always default paras
@@ -130,15 +130,20 @@ def get_parser(args=None):
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
     parser.add_argument('--use_data_ratio', type=int, default=1)
     parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = False',type=str2bool , default=False)
+    
     parser = vars(parser.parse_args(args))
     return parser
 
 def to_val_parser(parser:argparse):
     parser['state'] = parser['start_state'] 
-    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)]
+    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 20 - 1, -10)]
+    
     parser['threshold'] = 0.05
     parser['just_val'] = False
     parser['output_csv'] = True
+    parser['new_folder'] = True
+    parser['specific_folder'] = None
+    
     parser['warm_stage'] = 0
     parser['shuffle_class'] = False
 

@@ -125,8 +125,10 @@ class IL_Trainer(object):
     def update_training_tools(self):
         """update model, optimizer and scheduler
         """
-        if self.params['sim_method'] == "large" or self.params['sim_method'] == "mean":
-            debug_print("{} Similarity init ".format(self.params['sim_method']))
+
+        method = self.params['init_method']
+        if  method == "large" or method == "mean":
+            debug_print("{} Similarity init ".format(self.params['init_method']))
             similarity_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "similarity.pickle")
             if os.path.isfile(similarity_file):
                 with open(similarity_file, 'rb') as f:
@@ -138,7 +140,7 @@ class IL_Trainer(object):
         else:
             similaritys = None
 
-        self.model.next_state(self.get_cur_state()['num_new_class'], similaritys, self.params['sim_method'])
+        self.model.next_state(self.get_cur_state()['num_new_class'], similaritys, method)
         self.optimizer = optim.Adam(self.model.parameters(), lr=1e-5)
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
 

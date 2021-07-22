@@ -30,12 +30,16 @@ class Evaluator(Params):
         self.init_dataset()
         self.results = {}
         self.collect_result = self['output_csv']
-        if self['timestamp']:
-            self.new_folder_name = datetime.now().strftime("%Y-%m-%d-%H-%M")
+        if self['new_folder']:
+            if self['specific_folder'] == "None":
+                self.new_folder_name = datetime.now().strftime("%Y-%m-%d-%H-%M")
+            else:
+                self.new_folder_name = self['specific_folder']
     
 
     def get_tensorbord_info(self):
-        
+        """generate the information which will be recored into tensorboard
+        """
         results = dict()
         ap_declines = defaultdict(list)
         recall_declines = defaultdict(list)
@@ -258,7 +262,7 @@ class Evaluator(Params):
         create_dir(file_path)
         file_path = os.path.join(file_path, 'state{}'.format(self['state']))
         create_dir(file_path)
-        if self['timestamp']:
+        if self['new_folder']:
             file_path = os.path.join(file_path, self.new_folder_name)
             create_dir(file_path)
 
