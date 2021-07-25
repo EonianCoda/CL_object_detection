@@ -296,9 +296,9 @@ class Params(object):
                 return ",".join([str(v) for v in value])
             elif isinstance(value, bool):
                 if value:
-                    return True
+                    return "True"
                 else:
-                    return False
+                    return "False"
             else:
                 return value
         result = dict()
