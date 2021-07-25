@@ -313,12 +313,11 @@ class Params(object):
             result['warm_layers'] = to_str(self['warm_layers']) 
         # distill
         result['distill'] = to_str(self['distill'])
-        if self['distill']:
-            result['distill_logits'] = to_str(self['distill_logits'])
+        result['distill_logits'] = to_str(self['distill_logits'])
+        if self['distill_logits']:
             result['distill_logits_on'] = to_str(self['distill_logits_on'])
             result['distill_logits_bg_loss'] = to_str(self['distill_logits_bg_loss'])
         else:
-            result['distill_logits'] = "None"
             result['distill_logits_on'] = "None"
             result['distill_logits_bg_loss'] = "None"
 

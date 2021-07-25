@@ -135,6 +135,10 @@ def get_parser(args=None):
     return parser
 
 def to_val_parser(parser:argparse):
+    # recover scenario_list
+    parser['scenario'] = parser['scenario_list']
+
+
     parser['state'] = parser['start_state'] 
     parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 20 - 1, -10)]
     

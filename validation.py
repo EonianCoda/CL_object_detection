@@ -55,6 +55,9 @@ def validation(evaluator:Evaluator):
     params_file = os.path.join(ckp_path, 'params.txt')
     if os.path.isfile(params_file):
         shutil.copy(params_file, os.path.join(evaluator.get_result_path(-1), 'params.txt'))
+    il_hparams_file = os.path.join(ckp_path, 'il_hparams.pickle')
+    if os.path.isfile(il_hparams_file):
+        shutil.copy(il_hparams_file, os.path.join(evaluator.get_result_path(-1), 'il_hparams.pickle'))
     
     print("Evaluate at state{} Epoch({})".format(evaluator['state'], evaluator['epoch']))
 
