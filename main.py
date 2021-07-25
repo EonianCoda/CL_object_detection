@@ -140,7 +140,11 @@ def to_val_parser(parser:argparse):
 
 
     parser['state'] = parser['start_state'] 
-    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)]
+
+    if parser['end_epoch'] > 50:
+        parser['epoch'] = [epoch for epoch in range(60, 30 - 1, -10)]
+    else:
+        parser['epoch'] = [epoch for epoch in range(50, 20 - 1, -10)]
     
     parser['threshold'] = 0.05
     parser['just_val'] = False
