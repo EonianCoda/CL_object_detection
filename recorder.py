@@ -31,10 +31,13 @@ class Recorder(object):
         if self.writer != None:
             self.writer.close()
             del self.writer
+
+        
         now = datetime.now().strftime("%Y-%m-%d-%H-%M")
-
-        logdir = os.path.join(self.root_path, now + '_' +self.il_trainer.params['scenario'])
-
+        if self.il_trainer.params['description'] == "None":
+            logdir = os.path.join(self.root_path, now + '_' +self.il_trainer.params['scenario'])
+        else:
+            logdir = os.path.join(self.root_path, self.il_trainer.params['description'])
         self.writer = SummaryWriter(logdir)
     
     def next_state(self):
