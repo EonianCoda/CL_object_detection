@@ -112,7 +112,7 @@ class Params(object):
                 specific_data_split: for validation , default = None
         """
 
-        self._params = parser
+        self._params = copy.deepcopy(parser)
 
         self['scenario_list'] = parser['scenario']
         self['scenario'] = "_".join([str(i) for i in parser['scenario']])
