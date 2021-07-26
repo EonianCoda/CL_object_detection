@@ -99,7 +99,7 @@ class IL_Trainer(object):
     def update_replay_dataloader(self):
         if self.params['sample_num'] <= 0:
             return
-        sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['batch_size'], drop_last=False)
+        sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['sample_batch_size'], drop_last=False)
         self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
     def init_agem(self):

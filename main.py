@@ -21,6 +21,7 @@ ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
 PRINT_INFO = True # whether print some information about continual learning on the scrren
 DEFAULT_ALPHA = 0.25
 DEFAULT_GAMMA = 2.0
+DEFAULT_BATCH_SIZE = 5
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -108,6 +109,8 @@ def get_parser(args=None):
 
     parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd, 0 mean no sample, default = 0', type=int, default=0)
     parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','herd'", default="herd")
+    parser.add_argument('--sample_batch_size', help="the batch size for replay data',default=5", type=int, default=DEFAULT_BATCH_SIZE)
+
 
     parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     parser.add_argument('--mas_file', help='the name of mas file name, default="MAS"', default="MAS")
@@ -126,7 +129,7 @@ def get_parser(args=None):
 
     # always default paras
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
-    parser.add_argument('--batch_size', help='batch_size', type=int, default=5)
+    parser.add_argument('--batch_size', help='batch_size', type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
     parser.add_argument('--use_data_ratio', type=int, default=1)
     parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = False',type=str2bool , default=False)
