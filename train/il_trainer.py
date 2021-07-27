@@ -101,11 +101,11 @@ class IL_Trainer(object):
        
             
         # save samples png
-        img_path = self.il_trainer.dataset_train.image_path
+        img_path = self.dataset_train.image_path
         replay_imgs = self.dataset_replay.image_ids
         num_classes = int(len(replay_imgs) / self.params['sample_num'])
         
-        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.cur_state))
+        path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state))
 
         with open(os.path.join(path,'examplar.txt'), 'w') as f:
             for img_id in replay_imgs:
@@ -114,7 +114,7 @@ class IL_Trainer(object):
         cat_ids = self.params.states[-1]['knowing_class']['id'][:num_classes]
         cat_names = self.params.states.coco.catId_to_name(cat_ids)
 
-        fig = plt.figure(figsize=(4*self.per_num,3.5*num_classes), constrained_layout=True)
+        fig = plt.figure(figsize=(4*self.params['sample_num'],3.5*num_classes), constrained_layout=True)
         gs = fig.add_gridspec(num_classes, self.params['sample_num'])
         row = 0
         for row, cat_name in enumerate(cat_names):
