@@ -37,6 +37,7 @@ def get_val_parser(args=None):
     parser.add_argument('--new_folder',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
     parser.add_argument('--specific_folder', default="None")
 
+
     # always fixed
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=DEFAULT_DEPTH)
     parser.add_argument('--root_dir', help='the root dir for training', default=ROOT_DIR)

@@ -95,6 +95,25 @@ class IL_Trainer(object):
             self.herd_sampler = Herd_sampler(self)
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
+        elif self.params['sample_method'] == 'maxNum':
+            path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+            with open(os.path.join(path, 'maxNum_scores.pickle'), 'rb') as f:
+                classed_max_lists = pickle.load(f)
+            examplar = []
+            for cat_id in self.params.states[self.cur_state - 1]['knowing_class']['id']:
+                nums = [num for num in classed_max_lists[cat_id].keys()]
+                nums.sort(reverse=True)
+                cur_num = 0
+                for num in nums:
+                    for img_id in classed_max_lists[cat_id][num]:
+                        if img_id not in examplar:
+                            examplar.append(img_id)
+                            cur_num += 1
+                            if cur_num == self.params['sample_num']:
+                                break
+                    if cur_num == self.params['sample_num']:
+                        break
+                self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
         else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
 
