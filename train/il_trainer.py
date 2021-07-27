@@ -105,7 +105,7 @@ class IL_Trainer(object):
         replay_imgs = self.dataset_replay.image_ids
         num_classes = int(len(replay_imgs) / self.params['sample_num'])
         
-        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(self.cur_state))
 
         with open(os.path.join(path,'examplar.txt'), 'w') as f:
             for img_id in replay_imgs:
@@ -120,7 +120,7 @@ class IL_Trainer(object):
         for row, cat_name in enumerate(cat_names):
             for col in range(self.params['sample_num']):
                 ax = fig.add_subplot(gs[row, col])
-                im = cv2.imread(os.path.join(img_path, "{:06d}".format(replay_imgs[row*self.params['sample_num']+col])) +'.jpg'))
+                im = cv2.imread(os.path.join(img_path, "{:06d}".format(replay_imgs[row*self.params['sample_num']+col])) +'.jpg')
                 ax.set_title(cat_name)
                 ax.imshow(im)
         

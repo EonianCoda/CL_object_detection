@@ -55,10 +55,22 @@ def validation(evaluator:Evaluator):
     params_file = os.path.join(ckp_path, 'params.txt')
     if os.path.isfile(params_file):
         shutil.copy(params_file, os.path.join(evaluator.get_result_path(-1), 'params.txt'))
+    # copy il_hparams.pickle
     il_hparams_file = os.path.join(ckp_path, 'il_hparams.pickle')
     if os.path.isfile(il_hparams_file):
         shutil.copy(il_hparams_file, os.path.join(evaluator.get_result_path(-1), 'il_hparams.pickle'))
+
+    # if examplar exists, then copy
+    examplar_png = os.path.join(ckp_path, 'examplar.png')
+    if os.path.isfile(examplar_png):
+        shutil.move(examplar_png, os.path.join(evaluator.get_result_path(-1), 'examplar.png'))
+    examplar_txt = os.path.join(ckp_path, 'examplar.txt')
+    if os.path.isfile(examplar_txt):
+        shutil.move(examplar_txt, os.path.join(evaluator.get_result_path(-1), 'examplar.txt'))
+
     
+
+
     print("Evaluate at state{} Epoch({})".format(evaluator['state'], evaluator['epoch']))
 
     # just read the result json file, not to do prediction on test datset
