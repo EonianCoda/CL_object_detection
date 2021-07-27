@@ -94,11 +94,12 @@ class Visualizer(object):
     def get_ranked_mean_weights(self, smooth=8):
         if not self.model:
             raise ValueError("Please call set model first!")
-
+        
         num_new_class = self.arams.states[self.state]['num_new_class']
         num_old_class = self.params.states[self.state]['num_past_class']
 
         old_ranked_mean = self._cal_ranked_mean(self.classifier,0, num_old_class,smooth)
+        new_ranked_mean = self._cal_ranked_mean(self.classifier,num_old_class , num_old_class,smooth)
         return old_ranked_mean
 
 

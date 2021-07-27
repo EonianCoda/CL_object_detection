@@ -210,7 +210,6 @@ class Herd_sampler(object):
         """
         img_classified_ratio = {}
         coco = self.il_trainer.dataset_train.coco
-        i = 1
         for idx in range(len(self.il_trainer.dataset_train)):
             classified_ratio = defaultdict(float)
 

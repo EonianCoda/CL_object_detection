@@ -1,7 +1,6 @@
 # import collections
 
 import pickle
-from posix import EX_OSFILE
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
 from retinanet.model import create_retinanet
