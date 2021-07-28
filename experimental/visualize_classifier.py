@@ -80,7 +80,10 @@ class Visualizer(object):
             classed_values = []
             for start_idx in range(0, len(values), smooth):
                 temp = 0
+                if start_idx + smooth >= len(values):
+                    break
                 for i in range(smooth):
+
                     temp += values[start_idx + i] / smooth
 
                 classed_values.append(temp)
