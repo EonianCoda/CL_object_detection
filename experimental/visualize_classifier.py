@@ -21,6 +21,9 @@ class Visualizer(object):
         self.epoch = epoch
 
         self.classifier = self._get_classifier_weights(self.model)
+        self.num_new_class = self.params.states[self.state]['num_new_class']
+        if self.state != 0:
+            self.num_old_class = self.params.states[self.state]['num_past_class']
 
 
     def _get_classifier_weights(model):
@@ -50,23 +53,18 @@ class Visualizer(object):
 
         return classed_parameters
     
-    def get_weight_norms(self):
-        """
-            Args:
-                state: int, the prefered state
-                epoch: int, the prefered epoch
-        """
+    def _get_weight_norms(self):
         def cal_norm(x):
             return float(torch.norm(x))
 
         if not self.model:
             raise ValueError("Please call set model first!")
 
-        weight_norms = []
-        bias_norms = []
+        weight_norms = dict()
+        bias_norms = dict()
         for class_id, data in enumerate(self.classifier):
-            weight_norms.append(cal_norm(data['weight']))
-            bias_norms.append(cal_norm(data['bias']))
+            weight_norms['class_id'] = cal_norm(data['weight'])
+            bias_norms['class_id'] = cal_norm(data['bias'])
         return weight_norms, bias_norms
     
     def _cal_ranked_mean(classifier, start_cid, end_cid, smooth = 1):
@@ -91,18 +89,63 @@ class Visualizer(object):
                 ranked_values += classed_values / num_classes
         return ranked_values
 
-    def get_ranked_mean_weights(self, smooth=8):
+    def _get_ranked_mean_weights(self, smooth=8):
         if not self.model:
             raise ValueError("Please call set model first!")
         
-        num_new_class = self.arams.states[self.state]['num_new_class']
-        num_old_class = self.params.states[self.state]['num_past_class']
+        if self.state != 0:
+            old_ranked_mean = self._cal_ranked_mean(self.classifier,0, self.num_old_class,smooth)
+        new_ranked_mean = self._cal_ranked_mean(self.classifier, self.num_old_class, self.num_old_class + self.num_new_class,smooth)
+        
+        if self.state != 0:
+            return old_ranked_mean, new_ranked_mean
+        else:
+            return new_ranked_mean
 
-        old_ranked_mean = self._cal_ranked_mean(self.classifier,0, num_old_class,smooth)
-        new_ranked_mean = self._cal_ranked_mean(self.classifier,num_old_class , num_old_class,smooth)
-        return old_ranked_mean
+    def _create_fig(figsize=(8,8)):
+        fig = plt.figure(figsize=figsize)
+        ax = plt.gca()
+        color = ['b','g','r','c', 'm', 'y', 'k']
+        ax.set_prop_cycle(cycler('color', color) + cycler('lw', [1] * len(color)))
+        # return fig
+    def show_ranked_mean_weight(self, smooth=8):
+        if self.state == 0:
+            new_ranked_mean = self._get_ranked_mean_weights(smooth)
+        else:
+            old_ranked_mean, new_ranked_mean = self._get_ranked_mean_weights(smooth)
+
+        # show figure
+        self._create_fig((8,12))
+
+        plt.title('mean of ranked weight of classifier for state{}'.format(self.state))
+        plt.bar(range(len(new_ranked_mean)), new_ranked_mean, label='new task')
+        if self.state != 0:
+            plt.bar(range(len(old_ranked_mean)), old_ranked_mean, label='old task')
+        plt.xlabel('ranked')
+        plt.ylabel('mean of ranked weight')
+        plt.legend()
+        plt.show()
+
+    def show_weight_norm(self):
+        weight_norms, bias_norms = self._get_weight_norms()
 
 
+        self._create_fig((8,8))
+
+        plt.title('norm for weight of classifier for state{}'.format(self.state))
+        cat_ids = [cat_id for cat_id in weight_norms.keys()]
+        cat_ids.sort()
+        
+        weight_norms_list = []
+        for cat_id in cat_ids:
+            weight_norms_list.append(weight_norms[cat_id])
+
+        plt.plot(range(1, len(weight_norms_list)+1), weight_norms_list)
+        plt.xlabel('class_id')
+        plt.ylabel('norm of classifier weigt')
+        plt.legend()
+        plt.show()
+        
 # def show(start_epoch:int, end_epoch:int, state:int):
 #     plt.figure(figsize=(8,8))
 #     ax = plt.gca()

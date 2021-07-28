@@ -113,7 +113,7 @@ class IL_Trainer(object):
                                 break
                     if cur_num == self.params['sample_num']:
                         break
-                self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
+            self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
         else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
 
