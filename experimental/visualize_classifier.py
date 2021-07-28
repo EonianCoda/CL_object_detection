@@ -32,6 +32,12 @@ def get_classifier_weights(model):
 
     return classed_parameters
 
+def create_fig(figsize=(8,8)):
+    fig = plt.figure(figsize=figsize)
+    ax = plt.gca()
+    color = ['b','g','r','c', 'm', 'y', 'k']
+    ax.set_prop_cycle(cycler('color', color) + cycler('lw', [1] * len(color)))
+
 class Visualizer(object):
     def __init__(self, params):
         self.params = params
@@ -99,12 +105,6 @@ class Visualizer(object):
         else:
             return new_ranked_mean
 
-    def _create_fig(figsize=(8,8)):
-        fig = plt.figure(figsize=figsize)
-        ax = plt.gca()
-        color = ['b','g','r','c', 'm', 'y', 'k']
-        ax.set_prop_cycle(cycler('color', color) + cycler('lw', [1] * len(color)))
-        # return fig
     def show_ranked_mean_weight(self, smooth=8):
         if self.state == 0:
             new_ranked_mean = self._get_ranked_mean_weights(smooth)
@@ -112,7 +112,7 @@ class Visualizer(object):
             old_ranked_mean, new_ranked_mean = self._get_ranked_mean_weights(smooth)
 
         # show figure
-        self._create_fig((8,12))
+        create_fig((8,12))
 
         plt.title('mean of ranked weight of classifier for state{}'.format(self.state))
         plt.bar(range(len(new_ranked_mean)), new_ranked_mean, label='new task')
@@ -127,7 +127,7 @@ class Visualizer(object):
         weight_norms, bias_norms = self._get_weight_norms()
 
 
-        self._create_fig((8,8))
+        create_fig((8,8))
 
         plt.title('norm for weight of classifier for state{}'.format(self.state))
         cat_ids = [cat_id for cat_id in weight_norms.keys()]
