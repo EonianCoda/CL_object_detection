@@ -5,6 +5,33 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 from collections import defaultdict
 
+def get_classifier_weights(model):
+    """get classifier weight from the model
+        Args:
+            model: the retinanet model
+    """
+    num_classes = model.num_classes
+    num_anchors = model.classificationModel.num_anchors
+
+    # output_weight = self.get_parameters("classificationModel.output.weight")
+    # output_bias = self.get_parameters("classificationModel.output.bias")
+    output_weight = model.state_dict()["classificationModel.output.weight"]
+    output_bias = model.state_dict()["classificationModel.output.bias"]
+    
+    classed_parameters = [{'weight':[],'bias':[]} for _ in range(num_classes)]
+
+    
+    for i in range(num_anchors):
+        start_idx = i * num_classes
+        for class_idx in range(num_classes):
+            classed_parameters[class_idx]['weight'].append(output_weight.data[start_idx + class_idx,:,:,:])
+            classed_parameters[class_idx]['bias'].append(output_bias.data[start_idx + class_idx])
+    for class_idx in range(num_classes):
+        classed_parameters[class_idx]['weight'] = torch.cat(classed_parameters[class_idx]['weight'])
+        classed_parameters[class_idx]['bias'] = torch.tensor(classed_parameters[class_idx]['bias'])
+
+    return classed_parameters
+
 class Visualizer(object):
     def __init__(self, params):
         self.params = params
@@ -17,39 +44,12 @@ class Visualizer(object):
         self.state = state
         self.epoch = epoch
 
-        self.classifier = self._get_classifier_weights(self.model)
+        self.classifier = get_classifier_weights(self.model)
         self.num_new_class = self.params.states[self.state]['num_new_class']
         if self.state != 0:
             self.num_old_class = self.params.states[self.state]['num_past_class']
 
 
-    def _get_classifier_weights(model):
-        """get classifier weight from the model
-            Args:
-                model: the retinanet model
-        """
-        num_classes = model.num_classes
-        num_anchors = model.classificationModel.num_anchors
-
-        # output_weight = self.get_parameters("classificationModel.output.weight")
-        # output_bias = self.get_parameters("classificationModel.output.bias")
-        output_weight = model.state_dict()["classificationModel.output.weight"]
-        output_bias = model.state_dict()["classificationModel.output.bias"]
-        
-        classed_parameters = [{'weight':[],'bias':[]} for _ in range(num_classes)]
-
-        
-        for i in range(num_anchors):
-            start_idx = i * num_classes
-            for class_idx in range(num_classes):
-                classed_parameters[class_idx]['weight'].append(output_weight.data[start_idx + class_idx,:,:,:])
-                classed_parameters[class_idx]['bias'].append(output_bias.data[start_idx + class_idx])
-        for class_idx in range(num_classes):
-            classed_parameters[class_idx]['weight'] = torch.cat(classed_parameters[class_idx]['weight'])
-            classed_parameters[class_idx]['bias'] = torch.tensor(classed_parameters[class_idx]['bias'])
-
-        return classed_parameters
-    
     def _get_weight_norms(self):
         def cal_norm(x):
             return float(torch.norm(x))
