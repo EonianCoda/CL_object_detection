@@ -66,11 +66,11 @@ class Visualizer(object):
         weight_norms = dict()
         bias_norms = dict()
         for class_id, data in enumerate(self.classifier):
-            weight_norms['class_id'] = cal_norm(data['weight'])
-            bias_norms['class_id'] = cal_norm(data['bias'])
+            weight_norms[class_id] = cal_norm(data['weight'])
+            bias_norms[class_id] = cal_norm(data['bias'])
         return weight_norms, bias_norms
     
-    def _cal_ranked_mean(classifier, start_cid, end_cid, smooth = 1):
+    def _cal_ranked_mean(self, classifier, start_cid, end_cid, smooth = 1):
         ranked_values = []
         num_classes = end_cid - start_cid
 
