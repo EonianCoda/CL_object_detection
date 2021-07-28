@@ -70,12 +70,12 @@ class Visualizer(object):
             bias_norms[class_id] = cal_norm(data['bias'])
         return weight_norms, bias_norms
     
-    def _cal_ranked_mean(self, classifier, start_cid, end_cid, smooth = 1):
+    def _cal_ranked_mean(self, start_cid, end_cid, smooth = 1):
         ranked_values = []
         num_classes = end_cid - start_cid
 
         for cid in range(start_cid, end_cid):
-            weight = classifier[cid].flatten()
+            weight = self.classifier[cid]['weight'].flatten()
             values, indices = torch.sort(weight, descending=True)
             classed_values = []
             for start_idx in range(0, len(values), smooth):
@@ -97,8 +97,8 @@ class Visualizer(object):
             raise ValueError("Please call set model first!")
         
         if self.state != 0:
-            old_ranked_mean = self._cal_ranked_mean(self.classifier,0, self.num_old_class,smooth)
-        new_ranked_mean = self._cal_ranked_mean(self.classifier, self.num_old_class, self.num_old_class + self.num_new_class,smooth)
+            old_ranked_mean = self._cal_ranked_mean(0, self.num_old_class,smooth)
+        new_ranked_mean = self._cal_ranked_mean(self.num_old_class, self.num_old_class + self.num_new_class,smooth)
         
         if self.state != 0:
             return old_ranked_mean, new_ranked_mean
@@ -140,7 +140,7 @@ class Visualizer(object):
         plt.plot(range(1, len(weight_norms_list)+1), weight_norms_list)
         plt.xlabel('class_id')
         plt.ylabel('norm of classifier weigt')
-        plt.legend()
+        # plt.legend()
         plt.show()
         
 # def show(start_epoch:int, end_epoch:int, state:int):
