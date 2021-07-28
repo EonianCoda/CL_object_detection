@@ -83,7 +83,7 @@ class Visualizer(object):
                 for i in range(smooth):
                     temp += values[start_idx + i] / smooth
 
-                classed_values.append((values[i] + values[i+1]) / smooth)
+                classed_values.append(temp)
 
             classed_values = np.array(classed_values)
             if len(ranked_values) == 0:
