@@ -1,6 +1,3 @@
-from _typeshed import Self
-
-from torch._C import set_flush_denormal
 from main import get_parser, Params
 import torch
 import numpy as np
