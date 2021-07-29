@@ -192,6 +192,7 @@ class ClassificationModel(nn.Module):
                     for i in range(self.num_anchors):
                         self.output.weight.data[i * self.num_classes + num_old_class + new_class_id,:,:,:] += ratio * old_output.weight.data[i * num_old_class + old_class_id,:,:,:] 
                         self.output.bias.data[i * self.num_classes + num_old_class + new_class_id] += ratio * old_output.bias.data[i * num_old_class + old_class_id]
+        #TODO 修改成複數個class
         elif method == "large":
             max_idx = int(torch.argmax(similaritys[0]))
             # copy weight from the most similar class
@@ -200,7 +201,7 @@ class ClassificationModel(nn.Module):
                 self.output.bias.data[i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class + max_idx]
         else:
             for i in range(self.num_anchors):
-                self.output.bias.data[i * self.num_classes + num_old_class] = -math.log((1.0 - prior) / prior)
+                self.output.bias.data[i * self.num_classes + num_old_class: (i+1) * self.num_classes] = -math.log((1.0 - prior) / prior)
         self.output.cuda()
         del old_output
 
