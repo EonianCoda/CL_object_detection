@@ -42,7 +42,6 @@ def print_iteration_info(losses):
         output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
         info.extend([key, value])
     
-    output += ' | Running loss: {0[%d]:1.5f} | Spend Time:{0[%d]:1.2f}s' % (len(info), len(info)+1)
     print(output.format(info))
 
 class A_GEM(object):
@@ -72,7 +71,7 @@ class A_GEM(object):
                 continue
             
             print_iteration_info(losses)
-
+            temp = []
             for name, p in model.named_parameters():
                 if "bn" not in name and p.requires_grad:
                     temp.append(p.grad.view(-1))

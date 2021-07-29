@@ -115,10 +115,11 @@ def train_process(il_trainer : IL_Trainer):
 
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
+                start = time.time()
                 if il_trainer.params['agem']:
                     il_trainer.agem.cal_replay_grad(il_loss)
                     
-                start = time.time()
+                
                 losses = cal_losses(il_trainer, il_loss, data)
                 if losses == None:
                     continue
