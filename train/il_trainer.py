@@ -51,9 +51,9 @@ class IL_Trainer(object):
 
         # if start state is not initial state, then update incremental learning setting
         if self.cur_state >= 1:
-            self.init_agem()
             self.init_replay_dataset()
             self.update_replay_dataloader()
+            self.init_agem()
             self.update_prev_model()
             self.update_mas()
 
@@ -156,7 +156,9 @@ class IL_Trainer(object):
         if not self.params['agem']:
             self.agem = None
             return
-        self.agem = A_GEM(self.model, self.dataset_replay, self.params)
+
+        num_groups = int((len(self.dataset_replay.image_ids) - 1) / self.params['batch_size']) + 1
+        self.agem = A_GEM(self.dataloader_replay, num_groups)
 
     def update_mas(self):
         # set MAS penalty

@@ -34,6 +34,10 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+        
+        if il_trainer.params['agem']:
+            il_trainer.agem.fix_grad(il_trainer.model)
+
         il_trainer.optimizer.step()
         il_trainer.loss_hist.append(float(loss))
         loss_info['total_loss'] = float(loss)
@@ -107,10 +111,12 @@ def train_process(il_trainer : IL_Trainer):
             il_trainer.warm_up(epoch=cur_epoch)
             il_trainer.model.freeze_bn()
 
+            not_warm_output = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
+
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
-                # if enable_warm_up and epoch_num >= warm_up_epoch + 1 and enable_agem:
-                #     agem.cal_replay_grad(optimizer)
+                if il_trainer.params['agem']:
+                    il_trainer.agem.cal_replay_grad(il_loss)
                     
                 start = time.time()
                 losses = cal_losses(il_trainer, il_loss, data)
@@ -127,7 +133,7 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            if il_trainer.dataset_replay != None and not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output'):
+            if il_trainer.params['agme'] == False and il_trainer.dataset_replay != None and not_warm_output:
                 print("Start Replay!")
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))

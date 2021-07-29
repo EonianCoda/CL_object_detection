@@ -184,7 +184,7 @@ class FocalLoss(nn.Module):
                 else:
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
-                non_GD_indices = 1 + (~positive_indices)
+                #non_GD_indices = 1 + (~positive_indices)
 
                 regression_diff = torch.abs(targets - regression[positive_indices, :])
 
