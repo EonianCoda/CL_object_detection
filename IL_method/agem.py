@@ -61,14 +61,12 @@ class A_GEM(object):
         model = il_loss.il_trainer.model
         for iter_num, data in enumerate(self.dataloader_replay):
             fast_zero_grad(model)
-            if not self.params['debug']:
-                try:
-                    losses = training_iteration(il_loss, data, is_replay=True)
-                except Exception as e:
-                    print(e)
-                    return None
-            else:
+            try:
                 losses = training_iteration(il_loss, data, is_replay=True)
+            except Exception as e:
+                print(e)
+                return None
+            
 
             if losses == None:
                 continue
