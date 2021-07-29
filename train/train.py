@@ -134,7 +134,7 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            if il_trainer.params['agme'] == False and il_trainer.dataset_replay != None and not_warm_output:
+            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_output:
                 print("Start Replay!")
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))

@@ -133,6 +133,8 @@ class IL_Trainer(object):
         cat_ids = self.params.states[-1]['knowing_class']['id'][:num_classes]
         cat_names = self.params.states.coco.catId_to_name(cat_ids)
 
+        #TODO 當為herd時，應改變順序
+
         fig = plt.figure(figsize=(4*self.params['sample_num'],3.5*num_classes), constrained_layout=True)
         gs = fig.add_gridspec(num_classes, self.params['sample_num'])
         row = 0

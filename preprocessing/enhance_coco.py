@@ -69,7 +69,7 @@ class Enhance_COCO(COCO):
         if isinstance(names, str):
             return [self.reverse_classes[names]]
 
-        names = list(set(names))
+        # names = list(set(names))
         
         ids = []
         for name in names:
