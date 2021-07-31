@@ -59,7 +59,7 @@ def get_similarity(model, dataset_train, thresold=THRESOLD):
             similarity /= torch.clamp(label_count.unsqueeze(dim=1), min=1)
 
             similaritys += similarity
-            img_count += class_appear[label]
+            img_count += class_appear
 
     similaritys /= img_count.unsqueeze(dim=1)
 

@@ -69,8 +69,11 @@ class Evaluator(Params):
             results[epoch] = dict()
             results[epoch]['sum_ap_decline'] = sum(ap_declines[epoch][:old_class_num]) * 100
             results[epoch]['sum_recall_decline'] = sum(recall_declines[epoch][:old_class_num]) * 100
-            results[epoch]['new_class_ap'] = self.results[epoch]['precision'][old_class_num]
-            results[epoch]['new_class_recall'] = self.results[epoch]['recall'][old_class_num]
+
+            num_classes = len(self.results[epoch]['precision'])
+            num_new_classes = num_classes - old_class_num
+            results[epoch]['new_class_ap'] = sum(self.results[epoch]['precision'][old_class_num:]) / num_new_classes
+            results[epoch]['new_class_recall'] = sum(self.results[epoch]['recall'][old_class_num]) / num_new_classes
             results[epoch]['pred_ratio'] = self.results[epoch]['pred_num'] / self.results[epoch]['real_num']
         return results
 
