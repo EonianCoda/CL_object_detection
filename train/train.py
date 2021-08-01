@@ -31,11 +31,18 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
 
         if bool(loss == 0):
             return None
-        loss.backward()
+        
+        # mas penalty
+        if not is_replay and il_trainer.params['mas']:
+            mas_loss = il_trainer.mas.penalty(il_trainer.prev_model, il_trainer.params['mas_ratio'])
+            loss_info['mas_loss'] = float(mas_loss)
+            loss += mas_loss
 
+        loss.backward()
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
         
-        if il_trainer.params['agem']:
+        #Agem fix gradient
+        if not is_replay and il_trainer.params['agem']:
             il_trainer.agem.fix_grad(il_trainer.model)
 
         il_trainer.optimizer.step()

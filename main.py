@@ -113,7 +113,7 @@ def get_parser(args=None):
 
 
     parser.add_argument('--mas', help='whether add memory aware synapses loss, must be "true" or "false", default="false"',type=str2bool , default=False)
-    parser.add_argument('--mas_file', help='the name of mas file name, default="MAS"', default="MAS")
+    parser.add_argument('--mas_ratio', help='the ratio for mas loss, default=1.0', type=float, default=1.0)
 
     parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     # parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)

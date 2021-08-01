@@ -68,7 +68,7 @@ class IL_Trainer(object):
         """
         if self.cur_state == 0:
             raise ValueError("Initial state doesn't have previous state")
-        if not self.params['distill']:
+        if not self.params['distill'] and not self.params['mas']:
             return
 
         if self.prev_model != None:
@@ -169,12 +169,12 @@ class IL_Trainer(object):
 
         debug_print("Update MAS")
         if self.mas != None:
+            self.mas.destory()
             del self.mas
         self.mas = MAS(self.model, self.params)
         # Test if the mas file exists
-        mas_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "{}.pickle".format(self.params['mas_file']))
-        if not self.mas.load_importance(mas_file):
-            self.mas.calculate_importance(self.dataloader_train)
+        if not self.mas.load_importance(state=self.cur_state - 1):
+            self.mas.calculate_importance(self.dataloader_train,self.cur_state - 1)
 
     def update_training_tools(self):
         """update model, optimizer and scheduler
