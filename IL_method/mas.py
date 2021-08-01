@@ -135,9 +135,9 @@ class MAS(object):
         for name, p in self.model.named_parameters():
             if p.requires_grad and name in self.precision_matrices.keys():
                 temp = self.precision_matrices[name] * (p - old_params[name]) ** 2
-                loss += temp.sum()
+                loss += temp.sum() * mas_ratio
 
         return loss
 
-    def destory(self):
+    def destroy(self):
         del self.precision_matrices
