@@ -359,9 +359,9 @@ class IL_Loss():
                 result['dist_feat_loss'] = dist_feat_loss
     
             # compute MAS loss
-            if self.params['mas']:
-                mas_loss = self.il_trainer.mas.penalty(self.il_trainer.prev_model)
-                result['mas_loss'] = mas_loss
+            # if self.params['mas']:
+            #     mas_loss = self.il_trainer.mas.penalty(self.il_trainer.prev_model)
+            #     result['mas_loss'] = mas_loss
 
 
 
