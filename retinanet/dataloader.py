@@ -56,7 +56,7 @@ class IL_dataset(Dataset):
     def update_imgIds(self):
         imgIds = self.coco.get_imgs_by_cats(self.seen_class_id)
         if 'test' != self.data_split:
-            imgIds = imgIds[:len(imgIds) * self.use_data_ratio]
+            imgIds = imgIds[:int(len(imgIds) * self.use_data_ratio)]
         self.image_ids = imgIds
       
     def next_state(self):
