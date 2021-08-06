@@ -196,7 +196,9 @@ class IL_Trainer(object):
 
         self.model.next_state(self.get_cur_state()['num_new_class'], similaritys, method)
         self.optimizer = optim.Adam(self.model.parameters(), lr=1e-5)
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
+        self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[50], gamma=0.1, verbose=True)
+
+        #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
 
     def next_state(self):
         self.cur_state += 1
