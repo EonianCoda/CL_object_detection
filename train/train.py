@@ -158,7 +158,8 @@ def train_process(il_trainer : IL_Trainer):
                 avg_times.append(end - start)
                 recorder.add_iter_loss(losses)
 
-            il_trainer.scheduler.step(np.mean(epoch_loss))
+            il_trainer.scheduler.step()
+            #il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
             il_trainer.params.auto_delete(cur_state, cur_epoch)
 

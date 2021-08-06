@@ -51,7 +51,7 @@ def create_IL_trainer(params:Params):
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
 
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50], gamma=0.1, verbose=True)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40], gamma=0.1, verbose=True)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
     
