@@ -50,7 +50,9 @@ def create_IL_trainer(params:Params):
     retinanet = retinanet.cuda()
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
+
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50], gamma=0.1, verbose=True)
+    #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
     
     # Read checkpoint
@@ -131,7 +133,7 @@ def get_parser(args=None):
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
     parser.add_argument('--batch_size', help='batch_size', type=int, default=DEFAULT_BATCH_SIZE)
     parser.add_argument('--new_state_epoch', help='the number of new state training epoch', type=int, default=60)
-    parser.add_argument('--use_data_ratio', type=int, default=1)
+    parser.add_argument('--use_data_ratio', type=float, default=1.0)
     parser.add_argument('--ignore_past_class', help='when calculating the focal loss, whether ignore past class), default = False',type=str2bool , default=False)
     
     parser = vars(parser.parse_args(args))
@@ -144,10 +146,12 @@ def to_val_parser(parser:argparse):
 
     parser['state'] = parser['start_state'] 
 
-    if parser['end_epoch'] > 50:
-        parser['epoch'] = [epoch for epoch in range(60, 30 - 1, -10)]
-    else:
-        parser['epoch'] = [epoch for epoch in range(50, 20 - 1, -10)]
+    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)]
+    
+#     if parser['end_epoch'] > 50:
+#         parser['epoch'] = [epoch for epoch in range(60, 30 - 1, -10)]
+#     else:
+#         parser['epoch'] = [epoch for epoch in range(50, 20 - 1, -10)]
     
     parser['threshold'] = 0.05
     parser['just_val'] = False
