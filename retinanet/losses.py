@@ -89,7 +89,7 @@ class FocalLoss(nn.Module):
             
             # compute the loss for classification
             targets = torch.ones(classification.shape, device=torch.device('cuda:0')) * -1
-
+    
             # if torch.cuda.is_available():
             #     targets = targets.cuda()
             
@@ -98,19 +98,31 @@ class FocalLoss(nn.Module):
                 targets[torch.lt(IoU_max, 0.4), :] = 0
             else:
                 past_class_num = params.states[cur_state]['num_past_class']
-                targets[torch.lt(IoU_max, 0.4), past_class_num:] = 0
+                # background mask
+                bg_mask = torch.lt(IoU_max, 0.4)
+                targets[bg_mask, past_class_num:] = 0
+
+                
+                if params['new_ignore_past_class']:
+                    # targets_old = torch.zeros(classification.shape, device=torch.device('cuda:0'))
+                    # targets_old[bg_mask, :past_class_num] = 1
+                    old_prod = torch.sum(classification[bg_mask, :past_class_num], dim=1)
+                    targets[old_prod < 0.5, :past_class_num] = 0
+                    #torch.log(old_prod) * (1 - torch.clamp(old_prod, max=1)) 
 
                 if params['ignore_ground_truth']:
-                    non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).reshape(1,-1)))
+                    non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).unsqeeze(dim=0)))
+                    # non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).reshape(1,-1)))
             
             positive_indices = torch.ge(IoU_max, 0.5) 
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
 
+            
             targets[positive_indices, :] = 0
             targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
             
-            
+
             if torch.cuda.is_available():
                 alpha_factor = torch.ones(targets.shape , device=torch.device('cuda:0')) * alpha
                 # alpha_factor = torch.ones(targets.shape).cuda() * alpha
@@ -129,26 +141,11 @@ class FocalLoss(nn.Module):
             
             cls_loss = focal_weight * bce
             
-            ################################
-            #  enhance_error for new class #
-            ################################
-            # if incremental_state and enhance_error and pre_class_num != 0:
-            #     temp = classification[torch.lt(IoU_max, 0.4), pre_class_num:]
-            #     if (temp > 0.05).sum() != 0:
-            #         if enhance_loss == None:
-            #             enhance_loss = torch.pow(temp[temp > 0.05], 2).sum()
-            #         else:
-            #             enhance_loss += torch.pow(temp[temp > 0.05], 2).sum()
-                    
-            # if not incremental_state and enhance_error and pre_class_num != 0:
-            #     torch.pow(classification[:,pre_class_num:], 2).sum()
-            #     print('enhace_error!')
-            #     cls_loss[:,pre_class_num:] *= 2
-                
             if torch.cuda.is_available():
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape, device=torch.device('cuda:0')))
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
+
 
             classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
 
@@ -315,7 +312,8 @@ class IL_Loss():
 
                 # Ignore ground truth
                 if self.params['ignore_ground_truth']:
-                    non_GD = torch.flatten(non_GD)
+                    # non_GD = torch.flatten(non_GD)
+                    prev_classification
 
                     prev_classification = prev_classification.view(-1, past_class_num)[non_GD,:]
                     classification = classification.view(-1, past_class_num)[non_GD, :]

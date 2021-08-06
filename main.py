@@ -127,7 +127,11 @@ def get_parser(args=None):
     parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
     parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
     parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean") 
+    parser.add_argument('--new_ignore_past_class', type=str2bool, default=False)
+    
+    
     parser.add_argument('--description', help="description for this experiment", default="None")
+
 
     # always default paras
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
