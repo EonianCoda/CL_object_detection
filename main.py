@@ -50,8 +50,8 @@ def create_IL_trainer(params:Params):
     retinanet = retinanet.cuda()
     retinanet.training = True
     optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
-
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[40], gamma=0.1, verbose=True)
+    
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=params['scheduler_milestone'], gamma=0.1, verbose=True)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
     
@@ -131,6 +131,7 @@ def get_parser(args=None):
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)
     parser.add_argument('--output_examplar', help='whether output the png for examplar, default = True',  type=str2bool, default=True)
     parser.add_argument('--description', help="description for this experiment", default="None")
+    parser.add_argument('--scheduler_milestone', type=int, nargs="+", default=[40])
 
 
     # always default paras

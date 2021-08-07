@@ -224,7 +224,8 @@ class FocalLoss(nn.Module):
         if incremental_state and params['ignore_ground_truth']:
             result.append(non_GD)
         if incremental_state and params['enhance_on_new']:
-            enhance_loss_on_new /= classifications.shape[0]
+            if enhance_loss_on_new != None:
+                enhance_loss_on_new /= classifications.shape[0]
             result.append(enhance_loss_on_new)
         return tuple(result)
 
@@ -314,7 +315,10 @@ class IL_Loss():
                 cls_loss, reg_loss, non_GD = losses
             elif self.params['enhance_on_new']:
                 cls_loss, reg_loss, enhance_loss_on_new = losses
-                result['enhance_loss_on_new'] = enhance_loss_on_new
+                if enhance_loss_on_new == None:
+                    result['enhance_loss_on_new'] = torch.Tensor(0).float()
+                else:
+                    result['enhance_loss_on_new'] = enhance_loss_on_new
             else:
                 cls_loss, reg_loss = losses
             result['cls_loss'] = cls_loss.mean()
