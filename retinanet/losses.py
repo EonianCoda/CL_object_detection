@@ -316,7 +316,7 @@ class IL_Loss():
             elif self.params['enhance_on_new']:
                 cls_loss, reg_loss, enhance_loss_on_new = losses
                 if enhance_loss_on_new == None:
-                    result['enhance_loss_on_new'] = torch.Tensor(0).float()
+                    result['enhance_loss_on_new'] = None
                 else:
                     result['enhance_loss_on_new'] = enhance_loss_on_new
             else:

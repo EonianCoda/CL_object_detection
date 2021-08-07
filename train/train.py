@@ -24,10 +24,13 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         loss = torch.tensor(0).float().cuda()
         loss_info = {}
         for key, value in losses.items():
-            loss += value
-            if is_replay:
-                key = 'replay_' + key
-            loss_info[key] = float(value)
+            if value != None:
+                loss += value
+                if is_replay:
+                    key = 'replay_' + key
+                loss_info[key] = float(value)
+            else:
+                loss_info[key] = float(0)
 
         if bool(loss == 0):
             return None
