@@ -134,19 +134,19 @@ class IL_Trainer(object):
         cat_names = self.params.states.coco.catId_to_name(cat_ids)
 
         #TODO 當為herd時，應改變順序
-
-        fig = plt.figure(figsize=(4*self.params['sample_num'],3.5*num_classes), constrained_layout=True)
-        gs = fig.add_gridspec(num_classes, self.params['sample_num'])
-        row = 0
-        for row, cat_name in enumerate(cat_names):
-            for col in range(self.params['sample_num']):
-                ax = fig.add_subplot(gs[row, col])
-                im = cv2.imread(os.path.join(img_path, "{:06d}".format(replay_imgs[row*self.params['sample_num']+col])) +'.jpg')
-                ax.set_title(cat_name)
-                ax.imshow(im)
-        
-        file_name = os.path.join(path, "examplar.png")
-        plt.savefig(file_name)
+        if self.params['output_examplar']:
+            fig = plt.figure(figsize=(4*self.params['sample_num'],3.5*num_classes), constrained_layout=True)
+            gs = fig.add_gridspec(num_classes, self.params['sample_num'])
+            row = 0
+            for row, cat_name in enumerate(cat_names):
+                for col in range(self.params['sample_num']):
+                    ax = fig.add_subplot(gs[row, col])
+                    im = cv2.imread(os.path.join(img_path, "{:06d}".format(replay_imgs[row*self.params['sample_num']+col])) +'.jpg')
+                    ax.set_title(cat_name)
+                    ax.imshow(im)
+            
+            file_name = os.path.join(path, "examplar.png")
+            plt.savefig(file_name)
 
     def update_replay_dataloader(self):
         if self.params['sample_num'] <= 0:

@@ -33,6 +33,9 @@ class FocalLoss(nn.Module):
                 non_GD = torch.Tensor([]).long().cuda()
         else:
             incremental_state = False
+    
+        if incremental_state and params['enhance_on_new']:
+            enhance_loss_on_new = None
 
         batch_size = classifications.shape[0]
         classification_losses = []
@@ -93,32 +96,36 @@ class FocalLoss(nn.Module):
             # if torch.cuda.is_available():
             #     targets = targets.cuda()
             
+
+            bg_mask = torch.lt(IoU_max, 0.4)
             # whether ignore past class
             if not incremental_state or (incremental_state and not params['ignore_past_class']):
-                targets[torch.lt(IoU_max, 0.4), :] = 0
+                targets[bg_mask, :] = 0
             else:
                 past_class_num = params.states[cur_state]['num_past_class']
                 # background mask
-                bg_mask = torch.lt(IoU_max, 0.4)
+                
                 targets[bg_mask, past_class_num:] = 0
 
                 
                 if params['new_ignore_past_class']:
                     # targets_old = torch.zeros(classification.shape, device=torch.device('cuda:0'))
                     # targets_old[bg_mask, :past_class_num] = 1
-                    old_prod = torch.sum(classification[bg_mask, :past_class_num], dim=1)
-                    targets[old_prod < 0.5, :past_class_num] = 0
+
+                    old_prod = torch.sum(classification[:, :past_class_num], dim=1)
+                    targets[torch.logical_and(bg_mask, old_prod < 0.5), :past_class_num] = 0
                     #torch.log(old_prod) * (1 - torch.clamp(old_prod, max=1)) 
 
                 if params['ignore_ground_truth']:
                     non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).unsqeeze(dim=0)))
                     # non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).reshape(1,-1)))
-            
+
+
+                    
             positive_indices = torch.ge(IoU_max, 0.5) 
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
 
-            
             targets[positive_indices, :] = 0
             targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
             
@@ -148,6 +155,17 @@ class FocalLoss(nn.Module):
 
 
             classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+
+
+            if incremental_state and params['enhance_on_new']:
+                new_class_bg = classification[bg_mask, past_class_num:]
+                # false negative mask
+                fn_mask = new_class_bg > 0.05
+                if (fn_mask > 0.05).sum() != 0:
+                    if enhance_loss_on_new == None:
+                        enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+                    else:
+                        enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
 
             # compute the loss for regression
             if positive_indices.sum() > 0:
@@ -201,9 +219,13 @@ class FocalLoss(nn.Module):
         result = [torch.stack(classification_losses).mean(dim=0, keepdim=True), 
                   torch.stack(regression_losses).mean(dim=0, keepdim=True)]
 
+
+
         if incremental_state and params['ignore_ground_truth']:
             result.append(non_GD)
-
+        if incremental_state and params['enhance_on_new']:
+            enhance_loss_on_new /= classifications.shape[0]
+            result.append(enhance_loss_on_new)
         return tuple(result)
 
 class IL_Loss():
@@ -290,6 +312,9 @@ class IL_Loss():
             # Whether ignore ground truth           
             if self.params['ignore_ground_truth']:
                 cls_loss, reg_loss, non_GD = losses
+            elif self.params['enhance_on_new']:
+                cls_loss, reg_loss, enhance_loss_on_new = losses
+                result['enhance_loss_on_new'] = enhance_loss_on_new
             else:
                 cls_loss, reg_loss = losses
             result['cls_loss'] = cls_loss.mean()
