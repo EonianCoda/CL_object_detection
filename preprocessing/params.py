@@ -347,6 +347,11 @@ class Params(object):
         result['init_method'] = to_str(self['init_method'])
         result['ignore_past_class'] = to_str(self['ignore_past_class'])
           
+        # learning rate
+        result['lr'] = to_str(self['lr'])
+        result['scheduler_milestone'] = to_str(self['scheduler_milestone'])
+        result['scheduler_decay'] = to_str(self['scheduler_decay'])
+        
 
         return result
     def print_il_info(self):

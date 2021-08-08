@@ -18,6 +18,9 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         Return: a dict, containing loss information
     """
     # with torch.cuda.amp.autocast():
+
+    warm_output = (il_trainer.cur_warm_stage != -1) and (il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
+
     with torch.cuda.device(0):
         losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay)
 
@@ -44,6 +47,16 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         loss.backward()
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
         
+        # warm classifier
+        if warm_output:
+            classificationModel = il_trainer.model.classificationModel
+            cur_state = il_trainer.cur_state
+            num_classes = il_trainer.params.states[cur_state]['num_knowing_class']
+            num_old_classes = il_trainer.params.states[cur_state]['num_past_class']
+            for i in range(classificationModel.num_anchors):
+                start_idx = i *  num_classes
+                classificationModel.output.weight.grad[start_idx : start_idx + num_old_classes,:,:,:] = 0
+                classificationModel.output.bias.grad[start_idx : start_idx + num_old_classes] = 0
         #Agem fix gradient
         if not is_replay and il_trainer.params['agem']:
             il_trainer.agem.fix_grad(il_trainer.model)

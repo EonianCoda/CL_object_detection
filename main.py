@@ -49,9 +49,9 @@ def create_IL_trainer(params:Params):
         retinanet = create_retinanet(params['depth'], params.states[start_state]['num_knowing_class'])
     retinanet = retinanet.cuda()
     retinanet.training = True
-    optimizer = optim.Adam(retinanet.parameters(), lr=1e-5)
+    optimizer = optim.Adam(retinanet.parameters(), lr=params['lr'])
     
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=params['scheduler_milestone'], gamma=0.1, verbose=True)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=params['scheduler_milestone'], gamma=params['scheduler_decay'], verbose=True)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
     
@@ -120,19 +120,25 @@ def get_parser(args=None):
     parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     # parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)
 
+    # IL experimental(finished test)
+    parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
+    parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
+    parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean")
 
     # IL experimental params
     parser.add_argument('--ignore_ground_truth', help='whether ignore ground truth, default = False',type=str2bool , default=False)
     parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
-    parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
-    parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
-    parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean") 
     parser.add_argument('--new_ignore_past_class', type=str2bool, default=False)
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)
-    parser.add_argument('--output_examplar', help='whether output the png for examplar, default = True',  type=str2bool, default=True)
-    parser.add_argument('--description', help="description for this experiment", default="None")
-    parser.add_argument('--scheduler_milestone', type=int, nargs="+", default=[40])
 
+    # Record
+    parser.add_argument('--output_examplar', help='whether output the .png for examplars, default = True',  type=str2bool, default=True)
+    parser.add_argument('--description', help="description for this experiment", default="None")
+
+    # learning rate
+    parser.add_argument('--lr', help="learning rate, default=1e-5", type=float, default=1e-5)
+    parser.add_argument('--scheduler_milestone', type=int, nargs="+", default=[40])
+    parser.add_argument('--scheduler_decay',  help="learning rate decay for scheduler, default=0.1", type=float, default=0.1)
 
     # always default paras
     parser.add_argument('--depth', help='Resnet depth, must be one of 18, 34, 50, 101, 152', type=int, default=50)
