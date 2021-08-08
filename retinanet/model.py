@@ -313,9 +313,10 @@ class ResNet(nn.Module):
             return True
         
         for name, p in self.named_parameters():
-            if "bn" not in name:
-                if keyword_check(name, white_list):
-                    p.requires_grad = False
+            if keyword_check(name, white_list):
+                p.requires_grad = False
+            # if "bn" not in name:
+                
         self.freeze_bn()
 
     def unfreeze_layers(self):
@@ -323,8 +324,9 @@ class ResNet(nn.Module):
         """
         debug_print("Unfreeze all layers!")
         for name, p in self.named_parameters():
-            if "bn" not in name:
-                p.requires_grad = True
+            p.requires_grad = True
+            # if "bn" not in name:
+                
         self.freeze_bn()
   
 
