@@ -19,7 +19,7 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
     """
     # with torch.cuda.amp.autocast():
 
-    warm_output = (il_trainer.cur_warm_stage != -1) and (il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
+    warm_classifier = (il_trainer.cur_warm_stage != -1) and (il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
 
     with torch.cuda.device(0):
         losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay)
@@ -48,7 +48,7 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
         
         # warm classifier
-        if warm_output:
+        if warm_classifier:
             classificationModel = il_trainer.model.classificationModel
             cur_state = il_trainer.cur_state
             num_classes = il_trainer.params.states[cur_state]['num_knowing_class']
@@ -134,7 +134,7 @@ def train_process(il_trainer : IL_Trainer):
             il_trainer.warm_up(epoch=cur_epoch)
             il_trainer.model.freeze_bn()
 
-            not_warm_output = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
+            not_warm_classifier = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
 
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
@@ -157,7 +157,7 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_output:
+            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier:
                 print("Start Replay!")
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))

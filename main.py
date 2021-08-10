@@ -106,8 +106,8 @@ def get_parser(args=None):
 
     parser.add_argument('--distill', help='whether add distillation loss, default = False',type=str2bool , default=False)
     parser.add_argument('--distill_logits', help='whether distillation loss use logits, default = False',type=str2bool , default=False)
-    parser.add_argument('--distill_logits_on', help='whether distillation loss use logits on new class or old class,two option:"new" or ""old default = new', default="new")
-    parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
+    # parser.add_argument('--distill_logits_on', help='whether distillation loss use logits on new class or old class,two option:"new" or ""old default = new', default="new")
+    # parser.add_argument('--distill_logits_bg_loss', help='whether add background loss on distillation loss, default = False',type=str2bool , default=False)
 
     parser.add_argument('--sample_num', help='the number of sample images each class for replay metohd, 0 mean no sample, default = 0', type=int, default=0)
     parser.add_argument('--sample_method', help="sample old state images's method, must be 'random','herd'", default="herd")
@@ -126,7 +126,6 @@ def get_parser(args=None):
     parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean")
 
     # IL experimental params
-    parser.add_argument('--ignore_ground_truth', help='whether ignore ground truth, default = False',type=str2bool , default=False)
     parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
     parser.add_argument('--new_ignore_past_class', type=str2bool, default=False)
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)

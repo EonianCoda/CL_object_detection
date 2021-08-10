@@ -313,12 +313,12 @@ class Params(object):
         # distill
         result['distill'] = to_str(self['distill'])
         result['distill_logits'] = to_str(self['distill_logits'])
-        if self['distill_logits']:
-            result['distill_logits_on'] = to_str(self['distill_logits_on'])
-            result['distill_logits_bg_loss'] = to_str(self['distill_logits_bg_loss'])
-        else:
-            result['distill_logits_on'] = "None"
-            result['distill_logits_bg_loss'] = "None"
+        # if self['distill_logits']:
+        #     result['distill_logits_on'] = to_str(self['distill_logits_on'])
+        #     result['distill_logits_bg_loss'] = to_str(self['distill_logits_bg_loss'])
+        # else:
+        #     result['distill_logits_on'] = "None"
+        #     result['distill_logits_bg_loss'] = "None"
 
         # Sample
         result['sample_num'] = to_str(self['sample_num'])
@@ -334,7 +334,7 @@ class Params(object):
 
 
         # Experimental params
-        result['ignore_ground_truth'] = to_str(self['ignore_ground_truth'])
+        # result['ignore_ground_truth'] = to_str(self['ignore_ground_truth'])
         result['decrease_positive'] = to_str(self['decrease_positive'])
 
         result['enhance_error'] = to_str(self['enhance_error'])
@@ -343,7 +343,6 @@ class Params(object):
         else:
             result['enhance_error_method'] = "None"
 
-        result['ignore_ground_truth'] = to_str(self['ignore_ground_truth'])
         result['init_method'] = to_str(self['init_method'])
         result['ignore_past_class'] = to_str(self['ignore_past_class'])
           
@@ -365,7 +364,7 @@ class Params(object):
     def output_params(self, state):
 
         output_path = os.path.join(self['ckp_path'], "state{}".format(state))
-
+            
         # output il_hparams for validation
         with open(os.path.join(output_path, "il_hparams.pickle"), 'wb') as f:
             pickle.dump(self.get_il_info(), f)

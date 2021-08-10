@@ -27,15 +27,14 @@ class FocalLoss(nn.Module):
         gamma = params['gamma'] # default = 2
 
         # whether the state > 0, mean it is incremental state
-        if cur_state > 0:
-            incremental_state = True
-            if params['ignore_ground_truth']:
-                non_GD = torch.Tensor([]).long().cuda()
-        else:
-            incremental_state = False
-    
-        if incremental_state and params['enhance_on_new']:
-            enhance_loss_on_new = None
+        incremental_state = (cur_state > 0)
+            
+       
+        if incremental_state:
+            if params['enhance_on_new']:
+                enhance_loss_on_new = None
+            if params['distill']:
+                bg_masks = torch.Tensor([]).long().cuda()
 
         batch_size = classifications.shape[0]
         classification_losses = []
@@ -50,7 +49,7 @@ class FocalLoss(nn.Module):
 
         for j in range(batch_size):
 
-            classification = classifications[j, :, :] #shape = (num_anchors, class_num)
+            classification = classifications[j, :, :] # shape = (num_anchors, class_num)
             regression = regressions[j, :, :]
 
             bbox_annotation = annotations[j, :, :]
@@ -59,32 +58,17 @@ class FocalLoss(nn.Module):
             classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4)
 
             if bbox_annotation.shape[0] == 0:
-                if torch.cuda.is_available():
-                    alpha_factor = torch.ones(classification.shape, device=torch.device('cuda:0')) * alpha
+                alpha_factor = torch.ones(classification.shape, device=torch.device('cuda:0')) * alpha
 
-                    alpha_factor = 1. - alpha_factor
-                    focal_weight = classification
-                    focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+                alpha_factor = 1. - alpha_factor
+                focal_weight = classification
+                focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
 
-                    bce = -(torch.log(1.0 - classification))
+                bce = -(torch.log(1.0 - classification))
 
-                    cls_loss = focal_weight * bce
-                    classification_losses.append(cls_loss.sum())
-                    regression_losses.append(torch.tensor(0).float().cuda())
-                    
-                else:
-                    alpha_factor = torch.ones(classification.shape) * alpha
-
-                    alpha_factor = 1. - alpha_factor
-                    focal_weight = classification
-                    focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
-
-                    bce = -(torch.log(1.0 - classification))
-
-                    cls_loss = focal_weight * bce
-                    classification_losses.append(cls_loss.sum())
-                    regression_losses.append(torch.tensor(0).float())
-                    
+                cls_loss = focal_weight * bce
+                classification_losses.append(cls_loss.sum())
+                regression_losses.append(torch.tensor(0).float().cuda())
                 continue
 
             IoU = calc_iou(anchors[0, :, :], bbox_annotation[:, :4]) # shape=(num_anchors, num_annotations)
@@ -93,21 +77,14 @@ class FocalLoss(nn.Module):
             # compute the loss for classification
             targets = torch.ones(classification.shape, device=torch.device('cuda:0')) * -1
     
-            # if torch.cuda.is_available():
-            #     targets = targets.cuda()
-            
-
+            # get background anchor idx
             bg_mask = torch.lt(IoU_max, 0.4)
             # whether ignore past class
             if not incremental_state or (incremental_state and not params['ignore_past_class']):
                 targets[bg_mask, :] = 0
             else:
                 past_class_num = params.states[cur_state]['num_past_class']
-                # background mask
-                
                 targets[bg_mask, past_class_num:] = 0
-
-                
                 if params['new_ignore_past_class']:
                     # targets_old = torch.zeros(classification.shape, device=torch.device('cuda:0'))
                     # targets_old[bg_mask, :past_class_num] = 1
@@ -116,13 +93,12 @@ class FocalLoss(nn.Module):
                     targets[torch.logical_and(bg_mask, old_prod < 0.5), :past_class_num] = 0
                     #torch.log(old_prod) * (1 - torch.clamp(old_prod, max=1)) 
 
-                if params['ignore_ground_truth']:
-                    non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).unsqeeze(dim=0)))
-                    # non_GD = torch.cat((non_GD, torch.lt(IoU_max, 0.4).reshape(1,-1)))
-
-
-                    
             positive_indices = torch.ge(IoU_max, 0.5) 
+
+            # store non positive anchors for distillation loss
+            if incremental_state and params['distill']:
+                bg_masks.append(~positive_indices)
+
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
 
@@ -199,8 +175,6 @@ class FocalLoss(nn.Module):
                 else:
                     targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
 
-                #non_GD_indices = 1 + (~positive_indices)
-
                 regression_diff = torch.abs(targets - regression[positive_indices, :])
 
                 regression_loss = torch.where(
@@ -208,7 +182,6 @@ class FocalLoss(nn.Module):
                     0.5 * 9.0 * torch.pow(regression_diff, 2),
                     regression_diff - 0.5 / 9.0
                 )
-                
                 regression_losses.append(regression_loss.mean())
             else:
                 if torch.cuda.is_available():
@@ -216,18 +189,17 @@ class FocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-        result = [torch.stack(classification_losses).mean(dim=0, keepdim=True), 
-                  torch.stack(regression_losses).mean(dim=0, keepdim=True)]
-
-
-
-        if incremental_state and params['ignore_ground_truth']:
-            result.append(non_GD)
-        if incremental_state and params['enhance_on_new']:
-            if enhance_loss_on_new != None:
-                enhance_loss_on_new /= classifications.shape[0]
-            result.append(enhance_loss_on_new)
-        return tuple(result)
+        result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
+                  'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
+        
+        if incremental_state:
+            if params['enhance_on_new']:
+                if enhance_loss_on_new != None:
+                    enhance_loss_on_new /= classifications.shape[0]
+                result['enhance_loss_on_new'] = enhance_loss_on_new
+            if params['distill']:
+                result['bg_masks'] = bg_masks
+        return result
 
 class IL_Loss():
     def __init__(self, il_trainer):
@@ -236,7 +208,7 @@ class IL_Loss():
         self.il_trainer = il_trainer
         self.params = il_trainer.params
         self.focal_loss = FocalLoss()
-        self.act = nn.Sigmoid()
+        self.classifier_act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
     def forward(self, img_batch, annotations, is_replay=False):
         """
@@ -284,9 +256,10 @@ class IL_Loss():
                                                                 return_feat=False, 
                                                                 return_anchor=True, 
                                                                 enable_act=True)
-            cls_loss, reg_loss = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
-            result['cls_loss'] = cls_loss.mean()
-            result['reg_loss'] = reg_loss.mean()
+            losses = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
+            result['cls_loss'] = losses['cls_loss'].mean()
+            result['reg_loss'] = losses['reg_loss'].mean()
+
             # Enhance error on Replay dataset
             if self.il_trainer.params['enhance_error'] and is_replay:
                 classification = classification[:,:,past_class_num:]
@@ -308,88 +281,73 @@ class IL_Loss():
                                                                                 return_anchor=True, 
                                                                                 enable_act=False)
             # Compute focal loss
-            losses = self.focal_loss(self.act(classification), regression, anchors, annotations,cur_state,self.params)
+            losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
+            result['cls_loss'] = losses['cls_loss'].mean()
+            result['reg_loss'] = losses['reg_loss'].mean()
+            bg_masks = losses['bg_masks']
 
-            # Whether ignore ground truth           
-            if self.params['ignore_ground_truth']:
-                cls_loss, reg_loss, non_GD = losses
-            elif self.params['enhance_on_new']:
-                cls_loss, reg_loss, enhance_loss_on_new = losses
-                if enhance_loss_on_new == None:
-                    result['enhance_loss_on_new'] = None
-                else:
-                    result['enhance_loss_on_new'] = enhance_loss_on_new
-            else:
-                cls_loss, reg_loss = losses
-            result['cls_loss'] = cls_loss.mean()
-            result['reg_loss'] = reg_loss.mean()
+            # Whether ignore ground truth
+            if self.params['enhance_on_new']:
+                result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
+
             
             # Compute distillation loss
             if self.params['distill']:
                 with torch.no_grad():
                     prev_classification, prev_regression, prev_features = self.il_trainer.prev_model(img_batch,
-                                                                                    return_feat=True, 
-                                                                                    return_anchor=False, 
-                                                                                    enable_act=False)
+                                                                                                    return_feat=True, 
+                                                                                                    return_anchor=False, 
+                                                                                                    enable_act=False)
                 
-                dist_feat_loss = torch.cat([self.smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
-                dist_feat_loss = dist_feat_loss.mean()
+
+                # use cosine similarity to calculate distillation feature loss
+                dist_feat_loss = None
+                feat_loss_fun = nn.CosineEmbeddingLoss()
+                for i in range(len(features)):
+                    b, c, w, h  = features[i].shape # (batch_size, channels, weight, height)
+                    num_target = b * w * h
+                    if dist_feat_loss == None:
+                        dist_feat_loss = feat_loss_fun(prev_features[i].permute(0, 2, 3, 1).contiguous().view(-1, c),
+                                                                features[i].permute(0, 2, 3, 1).contiguous().view(-1, c),
+                                                                torch.ones(num_target, device=torch.device('cuda:0')))
+                    else:
+                        dist_feat_loss += feat_loss_fun(prev_features[i].permute(0, 2, 3, 1).contiguous().view(-1, c),
+                                                                features[i].permute(0, 2, 3, 1).contiguous().view(-1, c),
+                                                                torch.ones(num_target, device=torch.device('cuda:0')))
+                # use smoothL1loss to calculate distillation feature loss
+                # dist_feat_loss = torch.cat([self.smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
+                # dist_feat_loss = dist_feat_loss.mean()
 
 
                 # Ingore the result of the new class
                 classification = classification[:,:,:past_class_num]
 
-                # Ignore ground truth
-                if self.params['ignore_ground_truth']:
-                    # non_GD = torch.flatten(non_GD)
-                    prev_classification
 
-                    prev_classification = prev_classification.view(-1, past_class_num)[non_GD,:]
-                    classification = classification.view(-1, past_class_num)[non_GD, :]
-                    prev_regression = prev_regression.view(-1,4)[non_GD,:]
-                    regression = regression.view(-1,4)[non_GD,:]
-
-                    if distill_logits:
-                        greater = self.act(prev_classification) > 0.05
-                    else:
-                        prev_classification = self.act(prev_classification)
-                        classification = self.act(classification)
-                        greater = prev_classification > 0.05
-
-                    dist_reg_loss = self.smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
-                    dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[greater])
-
-                else:
-                    # whether compute distillation loss with logits
-                    if distill_logits:
-                        if self.il_trainer.params['distill_logits_on'] == "new":
-                            greater = self.act(classification) > 0.05
-                        else:
-                            greater = self.act(prev_classification) > 0.05
-                    else:
-                        prev_classification = self.act(prev_classification)
-                        classification = self.act(classification)
-                        greater = prev_classification > 0.05
                 
+                # whether compute distillation loss with logits
+                if distill_logits:
+                    # foreground which is predicted from prev model 
+                    prev_fg_mask = self.classifier_act(prev_classification) > 0.05
+                else:
+                    prev_classification = self.classifier_act(prev_classification)
+                    classification = self.classifier_act(classification)
+                    # foreground which is predicted from prev model 
+                    prev_fg_mask = prev_classification > 0.05
 
-                    dist_reg_loss = self.smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
-                    dist_class_loss = nn.MSELoss()(prev_classification[greater], classification[greater])
 
-                    # add background loss if distill with logits
-                    if distill_logits and self.il_trainer.params['distill_logits_bg_loss']:
-                        bg_class_loss = nn.MSELoss()(prev_classification[~greater], classification[~greater])
-                        # bg_class_loss /= torch.numel(prev_classification)
-                        dist_class_loss += bg_class_loss
+                reg_mask = torch.logical_and(bg_masks, prev_fg_mask.any(dim=2))
+                dist_reg_loss = self.smoothL1Loss(prev_regression[reg_mask], regression[reg_mask])
+                # dist_reg_loss = self.smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
+                dist_class_loss = nn.MSELoss()(prev_classification[prev_fg_mask], classification[prev_fg_mask])
+
+                # add background loss if distill with logits
+                # if distill_logits and self.il_trainer.params['distill_logits_bg_loss']:
+                #     bg_class_loss = nn.MSELoss()(prev_classification[~greater], classification[~greater])
+                #     # bg_class_loss /= torch.numel(prev_classification)
+                #     dist_class_loss += bg_class_loss
                     
                 result['dist_cls_loss'] = dist_class_loss
                 result['dist_reg_loss'] = dist_reg_loss
                 result['dist_feat_loss'] = dist_feat_loss
     
-            # compute MAS loss
-            # if self.params['mas']:
-            #     mas_loss = self.il_trainer.mas.penalty(self.il_trainer.prev_model)
-            #     result['mas_loss'] = mas_loss
-
-
-
         return result

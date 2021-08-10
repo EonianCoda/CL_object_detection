@@ -379,7 +379,10 @@ class ResNet(nn.Module):
 
     def cal_simple_focal_loss(self, img_batch, annotations, params):
         classification, regrsssion, anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=True)
-        cls_loss, reg_loss = losses.FocalLoss().forward(classification, regrsssion, anchors, annotations, cur_state=0, params=params)
+        loss = losses.FocalLoss().forward(classification, regrsssion, anchors, annotations, cur_state=0, params=params)
+
+        cls_loss = loss['cls_loss'] 
+        reg_loss = loss['reg_loss'] 
         return cls_loss, reg_loss
 
     def predict(self, img_batch, thresh=None, method=None):
