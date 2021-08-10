@@ -34,7 +34,7 @@ class FocalLoss(nn.Module):
             if params['enhance_on_new']:
                 enhance_loss_on_new = None
             if params['distill']:
-                bg_masks = torch.Tensor([]).long().cuda()
+                bg_masks = []
 
         batch_size = classifications.shape[0]
         classification_losses = []
@@ -97,7 +97,7 @@ class FocalLoss(nn.Module):
 
             # store non positive anchors for distillation loss
             if incremental_state and params['distill']:
-                bg_masks.append(~positive_indices)
+                bg_masks.append((~positive_indices).unsqueeze(dim=0))
 
             num_positive_anchors = positive_indices.sum()
             assigned_annotations = bbox_annotation[IoU_argmax, :]
@@ -198,7 +198,7 @@ class FocalLoss(nn.Module):
                     enhance_loss_on_new /= classifications.shape[0]
                 result['enhance_loss_on_new'] = enhance_loss_on_new
             if params['distill']:
-                result['bg_masks'] = bg_masks
+                result['bg_masks'] = torch.cat(bg_masks)
         return result
 
 class IL_Loss():
