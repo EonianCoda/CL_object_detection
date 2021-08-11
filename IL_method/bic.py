@@ -40,6 +40,7 @@ class Bic_Trainer(object):
         self._sample_img()
         self._init_dataset()
         self.freeze()
+        self.update_tools()
 
     def _init_dataset(self):
         self.image_ids
@@ -184,6 +185,7 @@ class Bic_Trainer(object):
 
     def next_state(self):
         self.cur_state += 1
+        self.update_tools()
 
 
         

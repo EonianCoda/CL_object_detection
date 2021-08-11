@@ -68,9 +68,11 @@ class IL_Trainer(object):
             raise(ValueError("Please call init_replay_dataset first"))
         self.bic = Bic_Trainer(self, self.params['bic_ratio'])
 
-        if self['start_epoch'] != 1:
-            path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(self['start_epoch']))
+        if self.params['start_epoch'] != 1:
+            path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(self.params['start_epoch']))
             self.bic.load_ckp(path)
+        self.update_dataloader()
+        self.update_replay_dataloader()
             
     def update_dataloader(self):
         if self.dataloader_train != None:
@@ -164,6 +166,8 @@ class IL_Trainer(object):
     def update_replay_dataloader(self):
         if self.params['sample_num'] <= 0:
             return
+        if self.dataloader_replay != None:
+            del self.dataloader_replay
         sampler = AspectRatioBasedSampler(self.dataset_replay, batch_size = self.params['sample_batch_size'], drop_last=False)
         self.dataloader_replay = DataLoader(self.dataset_replay, num_workers=2, collate_fn=collater, batch_sampler=sampler)
  
