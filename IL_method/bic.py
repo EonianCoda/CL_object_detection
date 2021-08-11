@@ -28,7 +28,7 @@ class Bic_Trainer(object):
         self.per_num = max(int(self.il_trainer.params['sample_num'] * val_ratio), 1)
 
         self.il_loss = IL_Loss(self.il_trainer)
-           
+        self.optim = None
         # init bias_layer
         num_state = len(self.il_trainer.params.states)     
         self.bias_layers = [BiasLayer() for _ in range(num_state - 1)]

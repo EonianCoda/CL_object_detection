@@ -44,6 +44,7 @@ class IL_Trainer(object):
         # incremental tools
         self.prev_model = None
         self.dataset_replay = None
+        self.dataloader_replay = None
         self.mas = None
         self.agem = None
         self.bic = None
