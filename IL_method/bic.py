@@ -20,8 +20,9 @@ class BiasLayer(nn.Module):
         print(i, self.alpha.item(), self.beta.item())
 
 class Bic_Evaluator(object):
-    def __init__(self, params):
+    def __init__(self, params, cur_state:int):
         self.params = params
+        self.cur_state = cur_state
         num_state = len(self.params.states) 
         self.bias_layers = [BiasLayer().cuda() for _ in range(num_state - 1)]
         self.num_init_class = self.params.states[0]['num_new_class']

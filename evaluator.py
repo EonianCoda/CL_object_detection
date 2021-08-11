@@ -294,7 +294,7 @@ class Evaluator(Params):
         model.eval()
         model.freeze_bn()
         if self['bic']:
-            bic_evaluator = Bic_Evaluator(self)
+            bic_evaluator = Bic_Evaluator(self, self['state'])
             bic_file = os.path.join(self['ckp_path'], 'state{}'.format(self['state']), 'bic_{}.pt'.format(epoch))
             bic_evaluator.load_ckp(bic_file)
 
