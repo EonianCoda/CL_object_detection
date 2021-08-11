@@ -36,8 +36,6 @@ class Bic_Evaluator(object):
         for i in range(len(self.bias_layers)):
             self.bias_layers[i].load_state_dict(ckp['model_state_dict'][i])
 
-        self.freeze()
-
     def bic_correction(self, x):
         """do bic correction
         Args:
