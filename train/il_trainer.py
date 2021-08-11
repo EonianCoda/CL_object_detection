@@ -62,7 +62,7 @@ class IL_Trainer(object):
             self.update_mas()
 
     def init_bic(self):
-        if not self['bic']:
+        if not self.params['bic']:
             return
         if self.dataset_replay == None:
             raise(ValueError("Please call init_replay_dataset first"))

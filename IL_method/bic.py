@@ -8,8 +8,6 @@ from torchvision import transforms
 
 from retinanet.dataloader import AspectRatioBasedSampler, Bic_dataset, Resizer, Augmenter, Normalizer, collater
 from retinanet.losses import IL_Loss
-from train import il_trainer
-from train.il_trainer import IL_Trainer
 
 class BiasLayer(nn.Module):
     def __init__(self):
@@ -23,7 +21,7 @@ class BiasLayer(nn.Module):
 
 # TODO 目前只能支援多一個新state
 class Bic_Trainer(object):
-    def __init__(self, il_trainer:IL_Trainer, val_ratio=0.1):
+    def __init__(self, il_trainer, val_ratio=0.1):
         self.il_trainer = il_trainer
         self.cur_state = il_trainer.cur_state
 
@@ -45,13 +43,13 @@ class Bic_Trainer(object):
 
     def _init_dataset(self):
         self.image_ids
-        self.bic_dataset = Bic_dataset(self.il_trainer.params, 
+        self.dataset_bic = Bic_dataset(self.il_trainer.params, 
                                         transforms.Compose([Normalizer(), Augmenter(), Resizer()]),
                                         self.image_ids,
                                         self.seen_ids)
 
-        sampler = AspectRatioBasedSampler(self.dataset_train, batch_size = self.params['batch_size'], drop_last=False)
-        self.bic_dataloader = DataLoader(self.dataset_train, num_workers=2, collate_fn=collater, batch_sampler=sampler)
+        sampler = AspectRatioBasedSampler(self.dataset_bic, batch_size = self.params['batch_size'], drop_last=False)
+        self.dataloader_bic = DataLoader(self.dataset_bic, num_workers=2, collate_fn=collater, batch_sampler=sampler)
 
     def update_tools(self):
         if self.optim != None:
@@ -85,7 +83,9 @@ class Bic_Trainer(object):
         new_class_ids = states[self.cur_state]['new_class']['id']
         for cat_id in new_class_ids:
             img_ids = coco.get_imgs_by_cats(cat_id)
-            new_class_img_ids = set(img_ids) & set(new_data)
+            new_class_img_ids = list(set(img_ids) & set(new_data))
+            new_class_img_ids.sort()
+
             for i in range(self.per_num):
                 img_id = new_class_img_ids[i]
                 self.image_ids.append(img_id)
@@ -148,7 +148,7 @@ class Bic_Trainer(object):
         mean_loss = 0.0
         with torch.cuda.device(0):
             self.optim.zero_grad()
-            for iter_num, data in enumerate(self.bic_dataloader):
+            for iter_num, data in enumerate(self.dataloader_bic):
                 loss_info = {}
                 
                 losses = self.il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay, is_bic=True)
