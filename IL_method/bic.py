@@ -176,7 +176,7 @@ class Bic_Trainer(object):
                 self.optim.zero_grad()
 
                 # print Info
-                output = 'Bic loss | Iter: {0[1]:3d}'
+                output = 'Bic loss | Iter: {0[0]:3d}'
                 info = [iter_num]
                 for key, value in loss_info.items():
                     output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)

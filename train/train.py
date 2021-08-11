@@ -181,7 +181,9 @@ def train_process(il_trainer : IL_Trainer):
             il_trainer.scheduler.step()
             #il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
-            il_trainer.auto_delete(cur_state, cur_epoch)
+
+            if cur_epoch % 5 == 0:
+                il_trainer.auto_delete(cur_state, cur_epoch)
 
 
             # Epoch Log

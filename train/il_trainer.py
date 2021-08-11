@@ -70,7 +70,7 @@ class IL_Trainer(object):
         self.bic = Bic_Trainer(self, self.params['bic_ratio'])
 
         if self.params['start_epoch'] != 1:
-            path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(self.params['start_epoch']))
+            path = os.path.join(self.params['ckp_path'],'state{}'.format(self.cur_state), 'bic_{}.pt'.format(self.params['start_epoch']))
             self.bic.load_ckp(path)
         self.update_dataloader()
         self.update_replay_dataloader()
@@ -255,7 +255,7 @@ class IL_Trainer(object):
     def save_ckp(self, epoch_loss:list,epoch:int):
         self.params.save_checkpoint(self.cur_state, epoch, self.model, self.optimizer, self.scheduler, self.loss_hist, epoch_loss)
         if self.params['bic'] and self.cur_state > 0:
-            bic_ckp_path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(epoch))
+            bic_ckp_path = os.path.join(self.params['ckp_path'],'state{}'.format(self.cur_state), 'bic_{}.pt'.format(epoch))
             self.bic.save_ckp(bic_ckp_path)
     
     def get_cur_state(self):
