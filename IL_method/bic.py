@@ -134,11 +134,18 @@ class Bic_Trainer(object):
         Args:
             x: a tensor for the result of classification
         """
-        sum_num_class = self.num_init_class
+        count = self.num_init_class
+
+        x_splits = []
         for i in range(self.cur_state):
-            x[:,:, sum_num_class: sum_num_class + self.num_new_class[i]]  = self.bias_layers[i](x[:,:, sum_num_class: sum_num_class + self.num_new_class[i]])
-            sum_num_class += self.num_new_class[i]
-        return x
+            x_splits.append(x[:,:, count:count + self.num_new_class[i]])
+            count += self.num_new_class[i]
+
+        out = [x[:,:,:self.num_init_class]]
+        for i in range(len(x_splits)):
+            out.append(self.bias_layers[i](x_splits[i]))
+
+        return torch.cat(out, dim=2)
 
     def bic_training(self):
         model = self.il_trainer.model
