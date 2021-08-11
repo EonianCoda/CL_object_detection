@@ -31,7 +31,7 @@ class Bic_Trainer(object):
         self.optim = None
         # init bias_layer
         num_state = len(self.il_trainer.params.states)     
-        self.bias_layers = [BiasLayer() for _ in range(num_state - 1)]
+        self.bias_layers = [BiasLayer().cuda() for _ in range(num_state - 1)]
         self.num_init_class = self.il_trainer.params.states[0]['num_new_class']
         self.num_new_class = []
         for i in range(1, len(self.il_trainer.params.states)):

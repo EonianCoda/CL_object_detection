@@ -267,7 +267,7 @@ class IL_Trainer(object):
             for i in range(1, epoch):
                 if i % 5 == 0:
                     continue
-                path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(i))
+                path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state),'bic_{}.pt'.format(i))
                 if os.path.isfile(path):
                     os.remove(path)
 

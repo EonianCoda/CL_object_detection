@@ -261,6 +261,7 @@ class IL_Loss():
                                                                     return_anchor=True, 
                                                                     enable_act=False)
                 classification = self.il_trainer.bic.bic_correction(classification)
+                classification = self.classifier_act(classification)
             else:
                 classification, regression, anchors = self.il_trainer.model(img_batch, 
                                                                     return_feat=False, 
