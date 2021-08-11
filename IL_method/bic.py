@@ -48,7 +48,8 @@ class Bic_Trainer(object):
                                         self.image_ids,
                                         self.seen_ids)
 
-        sampler = AspectRatioBasedSampler(self.dataset_bic, batch_size = self.params['batch_size'], drop_last=False)
+        # sampler = AspectRatioBasedSampler(self.dataset_bic, batch_size = self.il_trainer.params['batch_size'], drop_last=False)
+        sampler = AspectRatioBasedSampler(self.dataset_bic, batch_size = 4, drop_last=False)
         self.dataloader_bic = DataLoader(self.dataset_bic, num_workers=2, collate_fn=collater, batch_sampler=sampler)
 
     def update_tools(self):
