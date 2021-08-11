@@ -33,7 +33,8 @@ def get_val_parser(args=None):
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument('--just_val', help='whether predict or not',type=str2bool, default=False)
     parser.add_argument('--output_csv', help='whether output the csv file, default = True', type=str2bool, default=True)
-    
+    parser.add_argument('--bic', type=str2bool, default=False)
+
     parser.add_argument('--new_folder',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
     parser.add_argument('--specific_folder', default="None")
 

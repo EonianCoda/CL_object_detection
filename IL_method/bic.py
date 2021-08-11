@@ -19,6 +19,43 @@ class BiasLayer(nn.Module):
     def printParam(self, i):
         print(i, self.alpha.item(), self.beta.item())
 
+class Bic_Evaluator(object):
+    def __init__(self, params):
+        self.params = params
+        num_state = len(self.params.states) 
+        self.bias_layers = [BiasLayer().cuda() for _ in range(num_state - 1)]
+        self.num_init_class = self.il_trainer.params.states[0]['num_new_class']
+        self.num_new_class = []
+        for i in range(1, len(self.il_trainer.params.states)):
+            self.num_new_class.append(self.il_trainer.params.states[i]['num_new_class'])
+
+    def load_ckp(self, path:str):
+        """load the checkpoint for bic layers model and scheduler
+        """
+        ckp = torch.load(path)
+        for i in range(len(self.bias_layers)):
+            self.bias_layers[i].load_state_dict(ckp['model_state_dict'][i])
+
+        self.freeze()
+
+    def bic_correction(self, x):
+        """do bic correction
+        Args:
+            x: a tensor for the result of classification
+        """
+        count = self.num_init_class
+
+        x_splits = []
+        for i in range(self.cur_state):
+            x_splits.append(x[:,:, count:count + self.num_new_class[i]])
+            count += self.num_new_class[i]
+
+        out = [x[:,:,:self.num_init_class]]
+        for i in range(len(x_splits)):
+            out.append(self.bias_layers[i](x_splits[i]))
+
+        return torch.cat(out, dim=2)
+    
 # TODO 目前只能支援多一個新state
 class Bic_Trainer(object):
     def __init__(self, il_trainer, val_ratio=0.1):

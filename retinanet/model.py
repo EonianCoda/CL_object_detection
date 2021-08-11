@@ -377,14 +377,22 @@ class ResNet(nn.Module):
         reg_loss = loss['reg_loss'] 
         return cls_loss, reg_loss
 
-    def predict(self, img_batch, thresh=None, method=None):
+    def predict(self, img_batch, thresh=None, method=None, bic=None):
         """ model prediction
 
             Args:
                 img_batch: tensor, shape = (batch_size, channel, height, width)
                 thresh: list, indicate each category's thresh
         """
-        classification, regression , anchors = self.forward(img_batch, return_feat=False, return_anchor=True)
+
+        classification, regression , anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=False)
+
+        if bic:
+            classification = bic.bic_correction(classification)
+        
+        classification = nn.Sigmoid()(classification)
+
+
         transformed_anchors = self.regressBoxes(anchors, regression)
         transformed_anchors = self.clipBoxes(transformed_anchors, img_batch)
         finalResult = [[], [], []]

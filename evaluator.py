@@ -1,4 +1,5 @@
 # built-in
+from IL_method.bic import Bic_Evaluator
 import argparse
 import copy
 from tqdm import tqdm
@@ -292,6 +293,10 @@ class Evaluator(Params):
         model.training = False
         model.eval()
         model.freeze_bn()
+        if self['bic']:
+            bic_evaluator = Bic_Evaluator(self)
+            bic_evaluator.load_ckp(self['ckp_path'], 'state{}'.format(self['state']), 'bic_{}.pt'.format(epoch))
+
         with torch.no_grad():
             # start collecting results
             results = []
@@ -305,7 +310,10 @@ class Evaluator(Params):
                 scale = data['scale']
 
                 # run network
-                scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0))
+                if self['bic']:
+                    scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), bic_evaluator)
+                else:
+                    scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0))
 
             
                 scores = scores.cpu()
