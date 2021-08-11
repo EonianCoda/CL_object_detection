@@ -312,7 +312,7 @@ class Evaluator(Params):
 
                 # run network
                 if self['bic']:
-                    scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), bic_evaluator)
+                    scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0), bic=bic_evaluator)
                 else:
                     scores, labels, boxes = model.predict(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0))
 
