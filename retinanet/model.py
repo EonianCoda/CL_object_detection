@@ -205,6 +205,7 @@ class ClassificationModel(nn.Module):
         self.output.cuda()
         del old_output
 
+
 class ResNet(nn.Module):
 
     def __init__(self, num_classes, block, layers):
@@ -262,17 +263,6 @@ class ResNet(nn.Module):
         self.regressionModel.output.bias.data.fill_(0)
 
         self.freeze_bn()
-        
-        # # setting for continual learning
-        # self.init_prev_model(prev_model)
-        
-        # self.prev_num_classes = -1 #prev model
-        # # self.distill_feature = False distill_feature
-        # # self.distill_loss = distill_loss
-        # # self.special_alpha = 1.0
-        # # self.enhance_error = False
-        # # self.decrease_positive = False
-        # # self.each_cat_loss = False
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -307,6 +297,8 @@ class ResNet(nn.Module):
         self.unfreeze_layers()
         debug_print("Freeze some layers, except", " and ".join(white_list))
         def keyword_check(name, white_list):
+            if white_list == []:
+                return True
             for word in white_list:
                 if word in name:
                     return False
@@ -366,8 +358,8 @@ class ResNet(nn.Module):
 
         features = self.fpn([x2, x3, x4])
         regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)  #shape = (batch_size, W*H*A(Anchor_num), 4)
+        
         classification = torch.cat([self.classificationModel(feature, enable_act) for feature in features], dim=1) #shape = (batch_size, W*H*A(Anchor_num), class_num)
-
 
         result = [classification, regression]
         if return_feat:

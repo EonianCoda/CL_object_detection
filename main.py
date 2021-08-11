@@ -120,6 +120,9 @@ def get_parser(args=None):
     parser.add_argument('--agem', help='whether add averaged gradient episodic memory loss, must be "true" or "false", default="false"',type=str2bool , default=False)
     # parser.add_argument('--agem_batch', help='the number of agem batch size use , -1 mean use all category', type=int, default=-1)
 
+    parser.add_argument('--bic', help='whether use bic method, must be "true" or "false", default="false"',type=str2bool , default=False)
+    parser.add_argument('--bic_ratio', help='the val:train ratio for bic method, default="0.1", mean val:train=1:9',type=float , default=0.1)
+
     # IL experimental(finished test)
     parser.add_argument('--enhance_error', help="when use naive replay method, whether enhance new task error or not",type=str2bool , default=False) 
     parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 

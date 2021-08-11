@@ -210,7 +210,7 @@ class IL_Loss():
         self.focal_loss = FocalLoss()
         self.classifier_act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
-    def forward(self, img_batch, annotations, is_replay=False):
+    def forward(self, img_batch, annotations, is_replay=False, is_bic=False):
         """
             Args:
                 img_batch: a tenor for input
@@ -250,18 +250,28 @@ class IL_Loss():
         # Start forward #
         #################
 
+
+
         # non-incremental state
         if not increment_state:
-            classification, regression, anchors = self.il_trainer.model(img_batch, 
-                                                                return_feat=False, 
-                                                                return_anchor=True, 
-                                                                enable_act=True)
+            # Bic method
+            if self.params['bic']:
+                classification, regression, anchors = self.il_trainer.model(img_batch, 
+                                                                    return_feat=False, 
+                                                                    return_anchor=True, 
+                                                                    enable_act=False)
+                classification = self.il_trainer.bic.bic_correction(classification)
+            else:
+                classification, regression, anchors = self.il_trainer.model(img_batch, 
+                                                                    return_feat=False, 
+                                                                    return_anchor=True, 
+                                                                    enable_act=True)
             losses = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
             result['cls_loss'] = losses['cls_loss'].mean()
             result['reg_loss'] = losses['reg_loss'].mean()
 
             # Enhance error on Replay dataset
-            if self.il_trainer.params['enhance_error'] and is_replay:
+            if self.il_trainer.params['enhance_error'] and is_replay and is_bic == False:
                 classification = classification[:,:,past_class_num:]
                 classification = classification[classification > 0.05]
                 method = (self.il_trainer.params['enhance_error_method']).upper()
@@ -280,6 +290,9 @@ class IL_Loss():
                                                                                 return_feat=True, 
                                                                                 return_anchor=True, 
                                                                                 enable_act=False)
+            # Bic method
+            if self.params['bic']:
+                classification = self.il_trainer.bic.bic_correction(classification)
             # Compute focal loss
             losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
             result['cls_loss'] = losses['cls_loss'].mean()
@@ -315,6 +328,7 @@ class IL_Loss():
                                                                 features[i].permute(0, 2, 3, 1).contiguous().view(-1, c),
                                                                 torch.ones(num_target, device=torch.device('cuda:0')))
                 # use smoothL1loss to calculate distillation feature loss
+
                 # dist_feat_loss = torch.cat([self.smoothL1Loss(prev_features[i], features[i]).view(1) for i in range(len(features))])
                 # dist_feat_loss = dist_feat_loss.mean()
 

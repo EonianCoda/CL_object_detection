@@ -54,6 +54,8 @@ class Visualizer(object):
         self.num_new_class = self.params.states[self.state]['num_new_class']
         if self.state != 0:
             self.num_old_class = self.params.states[self.state]['num_past_class']
+        else:
+            self.num_old_class = 0
 
 
     def _get_weight_norms(self):

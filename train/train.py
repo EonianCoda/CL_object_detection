@@ -174,10 +174,15 @@ def train_process(il_trainer : IL_Trainer):
                 avg_times.append(end - start)
                 recorder.add_iter_loss(losses)
 
+            if il_trainer.params['bic'] and il_trainer.bic != None:
+                print("Start Bic!")
+                il_trainer.bic.bic_training()
+
             il_trainer.scheduler.step()
             #il_trainer.scheduler.step(np.mean(epoch_loss))
             il_trainer.save_ckp(epoch_loss, epoch=cur_epoch)
-            il_trainer.params.auto_delete(cur_state, cur_epoch)
+            il_trainer.auto_delete(cur_state, cur_epoch)
+
 
             # Epoch Log
             recorder.record_epoch_loss(cur_epoch)

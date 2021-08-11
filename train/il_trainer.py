@@ -1,5 +1,6 @@
 # built-in
 
+from IL_method.bic import Bic_Trainer
 import collections
 import os
 import pickle
@@ -45,18 +46,32 @@ class IL_Trainer(object):
         self.dataset_replay = None
         self.mas = None
         self.agem = None
+        self.bic = None
 
         # when training, use above attribute
         self.cur_warm_stage = -1
 
         # if start state is not initial state, then update incremental learning setting
         if self.cur_state >= 1:
+            # The order below is important, because some method dependent on another component
             self.init_replay_dataset()
+            self.init_bic()
             self.update_replay_dataloader()
             self.init_agem()
             self.update_prev_model()
             self.update_mas()
 
+    def init_bic(self):
+        if not self['bic']:
+            return
+        if self.dataset_replay == None:
+            raise(ValueError("Please call init_replay_dataset first"))
+        self.bic = Bic_Trainer(self, self.params['bic_ratio'])
+
+        if self['start_epoch'] != 1:
+            path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(self['start_epoch']))
+            self.bic.load_ckp(path)
+            
     def update_dataloader(self):
         if self.dataloader_train != None:
             del self.dataloader_train
@@ -117,8 +132,6 @@ class IL_Trainer(object):
         else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
 
-       
-            
         # save samples png
         img_path = self.dataset_train.image_path
         replay_imgs = self.dataset_replay.image_ids
@@ -210,13 +223,13 @@ class IL_Trainer(object):
         if self.dataset_replay !=None:
             if self.cur_state == 1:
                 self.init_replay_dataset()
+                self.init_bic()
+                self.init_agem()
 
             else:
-                self.dataset_replay.next_state()
+                self.dataset_replay.next_state()  
             self.update_replay_dataloader()
-        if self.cur_state == 1:
-            self.init_agem()
-        
+ 
         self.update_dataloader()
         self.update_prev_model(self.cur_state - 1)
 
@@ -235,10 +248,23 @@ class IL_Trainer(object):
         self.cur_warm_stage = cur_warm_stage
 
     def save_ckp(self, epoch_loss:list,epoch:int):
-
         self.params.save_checkpoint(self.cur_state, epoch, self.model, self.optimizer, self.scheduler, self.loss_hist, epoch_loss)
+        if self.params['bic'] and self.cur_state > 0:
+            bic_ckp_path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(epoch))
+            self.bic.save_ckp(bic_ckp_path)
+    
     def get_cur_state(self):
         return self.params.states[self.cur_state]
+
+    def auto_delete(self, state:int, epoch:int):
+        self.params.auto_delete(state, epoch)
+        if self.params['bic'] and self.cur_state > 0:
+            for i in range(1, epoch):
+                if i % 5 == 0:
+                    continue
+                path = os.path.join(self.params['ckp_path'], 'bic_{}.pt'.format(i))
+                if os.path.isfile(path):
+                    os.remove(path)
 
     def destroy(self):
         if self.model != None:
