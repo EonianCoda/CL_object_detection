@@ -295,7 +295,8 @@ class Evaluator(Params):
         model.freeze_bn()
         if self['bic']:
             bic_evaluator = Bic_Evaluator(self)
-            bic_evaluator.load_ckp(self['ckp_path'], 'state{}'.format(self['state']), 'bic_{}.pt'.format(epoch))
+            bic_file = os.path.join(self['ckp_path'], 'state{}'.format(self['state']), 'bic_{}.pt'.format(epoch))
+            bic_evaluator.load_ckp(bic_file)
 
         with torch.no_grad():
             # start collecting results
