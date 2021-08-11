@@ -24,10 +24,10 @@ class Bic_Evaluator(object):
         self.params = params
         num_state = len(self.params.states) 
         self.bias_layers = [BiasLayer().cuda() for _ in range(num_state - 1)]
-        self.num_init_class = self.il_trainer.params.states[0]['num_new_class']
+        self.num_init_class = self.params.states[0]['num_new_class']
         self.num_new_class = []
-        for i in range(1, len(self.il_trainer.params.states)):
-            self.num_new_class.append(self.il_trainer.params.states[i]['num_new_class'])
+        for i in range(1, len(self.params.states)):
+            self.num_new_class.append(self.params.states[i]['num_new_class'])
 
     def load_ckp(self, path:str):
         """load the checkpoint for bic layers model and scheduler
