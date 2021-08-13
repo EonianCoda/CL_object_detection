@@ -21,7 +21,7 @@ from preprocessing.debug import debug_print, DEBUG_FLAG
 class IL_dataset(Dataset):
     """incremental learning dataset."""
 
-    def __init__(self, params,transform=None, start_state=0, use_data_ratio = 1):
+    def __init__(self, params,transform=None, start_state=0, use_data_ratio = 1, use_all_class=False):
         """
         Args:
             train_params: train_params, which manage the training params
@@ -44,7 +44,7 @@ class IL_dataset(Dataset):
 
 
         # set annotation seen class
-        if self.data_split == "test":
+        if self.data_split == "test" or use_all_class:
             self.seen_class_id = self.states[self.cur_state]['knowing_class']['id']
         else:
             self.seen_class_id = self.states[self.cur_state]['new_class']['id']
