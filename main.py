@@ -130,6 +130,8 @@ def get_parser(args=None):
 
     # IL experimental params
     parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
+    parser.add_argument('--decrease_positive_by_IOU', help="whether decrease the score for new class in incremental state, default=False",type=str2bool , default=False) 
+    
     parser.add_argument('--new_ignore_past_class', type=str2bool, default=False)
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)
 

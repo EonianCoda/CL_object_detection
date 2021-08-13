@@ -112,13 +112,23 @@ class FocalLoss(nn.Module):
             else: 
                 alpha_factor = torch.ones(targets.shape) * alpha
             
-           
+            
+            
+            
+
+
             if not incremental_state:
                 focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification) #shape = (Anchor_num, class_num)
+            elif params['decrease_positive_by_IOU']:
+                mid_indices = torch.logical_and(torch.le(IoU_max, 0.7), positive_indices)
+                focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
+                upper_score = IoU_max + 0.2
+                focal_weight = torch.where(mid_indices, upper_score - torch.clip(classification, 1e-4, upper_score),focal_weight)
             else:
                 new_class_upper_score = params['decrease_positive']
                 focal_weight = torch.where(torch.eq(targets, 1.), new_class_upper_score - torch.clip(classification, 0, new_class_upper_score), classification)
-                
+
+
             focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
             bce = -(targets * torch.log(classification) + (1.0 - targets) * torch.log(1.0 - classification))
             
