@@ -128,6 +128,7 @@ def main(args=None):
     model.train()
     model.freeze_layers(['classificationModel.output','regressionModel.output'])
     loss_hist = collections.deque(maxlen=500)
+    print("Total IterNum:",len(dataloader_train))
     for epoch in range(params['start_epoch'], params['end_epoch'] + 1):
         for iter_num, data in enumerate(dataloader_train):
             start = time.time()
@@ -154,9 +155,9 @@ def main(args=None):
                 except Exception as e:
                     print(e)
                     return None
-            params.save_checkpoint(params['start_state'],epoch, model)
-            if epoch % 5 == 0:
-                params.auto_delete(params['start_state'],epoch)
+        params.save_checkpoint(params['start_state'],epoch, model)
+        if epoch % 5 == 0:
+            params.auto_delete(params['start_state'],epoch)
 
    
 
