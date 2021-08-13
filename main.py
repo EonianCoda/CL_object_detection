@@ -128,6 +128,7 @@ def get_parser(args=None):
     parser.add_argument('--enhance_error_method', help='if enhance new task error, which method to use, must be "L1","L2","L3"', default="L2") 
     parser.add_argument('--init_method', help='the method for new classifier init, must be "mean","large","None"', default="mean")
 
+
     # IL experimental params
     parser.add_argument('--decrease_positive', help="the upper score of the new class in incremental state, default=1.0",type=float , default=1.0) 
     parser.add_argument('--decrease_positive_by_IOU', help="whether decrease the score for new class in incremental state, default=False",type=str2bool , default=False) 

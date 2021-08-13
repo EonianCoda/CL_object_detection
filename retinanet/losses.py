@@ -112,10 +112,6 @@ class FocalLoss(nn.Module):
             else: 
                 alpha_factor = torch.ones(targets.shape) * alpha
             
-            
-            
-            
-
 
             if not incremental_state:
                 focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification) #shape = (Anchor_num, class_num)
