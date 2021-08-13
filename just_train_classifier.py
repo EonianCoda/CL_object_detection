@@ -145,7 +145,7 @@ def main(args=None):
                     optimizer.step()
                     loss_hist.append(float(loss))
                     end = time.time()
-                    print("Epoch: {} | Iter: {} | Cls_loss: {:3f} | Reg_loss: {:3f} | Total_loss: {:3f} | Running_loss: {:3f} | Time: {:1f}".format(epoch, 
+                    print("Epoch: {} | Iter: {} | Cls_loss: {:.3f} | Reg_loss: {:.3f} | Total_loss: {:.3f} | Running_loss: {:.3f} | Time: {:.2f}".format(epoch, 
                                                                                                                                                     iter_num, 
                                                                                                                                                     float(cls_loss), 
                                                                                                                                                     float(reg_loss), 
