@@ -118,13 +118,14 @@ class FocalLoss(nn.Module):
             elif params['decrease_positive_by_IOU']:
                 mid_indices = torch.logical_and(torch.le(IoU_max, 0.7), positive_indices)
 
-                targets[mid_indices, assigned_annotations[mid_indices, 4].long()] = 2.
-
                 focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
-                upper_score = torch.clip(IoU_max + 0.2, 1e-4, 1 - 1e-4)
-                focal_weight = torch.where(torch.eq(targets, 2.), torch.where(classification >= upper_score, 1e-4, upper_score - classification), classification)
 
-                targets[targets == 2.] = 1.
+                targets_for_mid = torch.zeros(classification.shape, device=torch.device('cuda:0'))
+                targets_for_mid[mid_indices, assigned_annotations[mid_indices, 4].long()] = 1
+                
+                upper_score = torch.clip(IoU_max + 0.2, 1e-4, 1 - 1e-4).unsqueeze(dim=1)
+                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 1e-4, torch.abs(classification - upper_score)), focal_weight)
+
             else:
                 new_class_upper_score = params['decrease_positive']
                 focal_weight = torch.where(torch.eq(targets, 1.), new_class_upper_score - torch.clip(classification, 0, new_class_upper_score), classification)
