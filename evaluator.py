@@ -26,7 +26,10 @@ DEFAULT_RESULT = {'precision':[], 'recall':[],'pred_num':0,'real_num':0}
 
 class Evaluator(Params):
     def __init__(self, parser:argparse):
-        super().__init__(parser, "test")
+        if parser['eval_on_train']:
+            super().__init__(parser)
+        else:
+            super().__init__(parser, "test")
         self.model = None
         self.init_dataset()
         self.results = {}

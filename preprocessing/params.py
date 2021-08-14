@@ -50,9 +50,22 @@ class IL_states(object):
         if shuffle:
             random.shuffle(classes)
 
+        total_num = 0
+        for idx, target in enumerate(scenario_list):
+            if isinstance(target, str):
+                if target.isnumeric():
+                    scenario_list[idx] = int(target)
+                    total_num += int(target)
+                else:
+                    classes[total_num] = target
+                    scenario_list[idx] = 1
+                    total_num += 1
+            elif isinstance(target, int):
+                scenario_list[idx] = target
+                total_num += target
         # for 15+1=train
-        if scenario_list == [15,1]:
-            classes[15] = 'train'
+        # if scenario_list == [15,1]:
+        #     classes[15] = 'train'
 
 
         total_num = 0
@@ -130,6 +143,9 @@ class Params(object):
         create_dir(ckp_path)
         ckp_path = os.path.join(ckp_path, self['scenario'])
         create_dir(ckp_path)
+        for state in range(self['end_state'] + 1):
+            dir_name = os.path.join(ckp_path, 'state{}'.format(state))
+            create_dir(dir_name)
         self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/checkpoint/15_1", "root_dir/checkpoint/20"
         self['data_path'] = os.path.join(self['root_dir'], 'dataset', self['dataset']) # the training data path
 

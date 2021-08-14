@@ -15,6 +15,7 @@ from preprocessing.params import Params
 # train
 from train.il_trainer import IL_Trainer
 from train.train import train_process
+import copy
 # Global Setting
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
@@ -101,7 +102,7 @@ def get_parser(args=None):
     parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
 
     # IL params 
-    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
+    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', nargs="+", default=[20])
     parser.add_argument('--shuffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
 
     parser.add_argument('--distill', help='whether add distillation loss, default = False',type=str2bool , default=False)
@@ -182,13 +183,14 @@ def to_val_parser(parser:argparse):
     return parser
 
 def validation_process(parser:argparse):
+    
     parser = to_val_parser(parser)
     evaluator = Evaluator(parser)
     validation(evaluator)
 
 def main(args=None):
     parser = get_parser(args)
-    params = Params(parser)
+    params = Params(copy.deepcopy(parser))
     params.output_params(params['start_state'])
     il_trainer = create_IL_trainer(params)
     # print training information
@@ -211,6 +213,7 @@ def main(args=None):
 
     # Validation
     if params['val']:
+        
         il_trainer.destroy()
         del il_trainer
         validation_process(parser)

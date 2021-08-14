@@ -29,11 +29,12 @@ def get_val_parser(args=None):
     parser.add_argument('--dataset', help='Dataset name, must contain name and years, for instance: voc2007,voc2012', default='voc2007')
     parser.add_argument('--epoch', help='the index of validation epochs', nargs='+', type=int)
     parser.add_argument('--state', type=int)
-    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
+    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', nargs="+", default=[20])
     parser.add_argument('--threshold', help='the threshold for prediction default=0.05', type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument('--just_val', help='whether predict or not',type=str2bool, default=False)
     parser.add_argument('--output_csv', help='whether output the csv file, default = True', type=str2bool, default=True)
     parser.add_argument('--bic', type=str2bool, default=False)
+    parser.add_argument("--val_on_train",type=str2bool, default=False)
 
     parser.add_argument('--new_folder',help='whether create new folder in val_result, default = True',type=str2bool, default=True)
     parser.add_argument('--specific_folder', default="None")
