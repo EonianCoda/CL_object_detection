@@ -126,8 +126,8 @@ class Params(object):
 
         self._params = copy.deepcopy(parser)
 
-        self['scenario_list'] = parser['scenario']
-        self['scenario'] = "_".join([str(i) for i in parser['scenario']])
+        self['scenario_list'] = self['scenario']
+        self['scenario'] = "_".join([str(i) for i in self['scenario']])
 
         # init datasplit
         if specific_data_split == None:

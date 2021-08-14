@@ -15,7 +15,6 @@ from preprocessing.params import Params
 # train
 from train.il_trainer import IL_Trainer
 from train.train import train_process
-import copy
 # Global Setting
 
 ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
@@ -190,7 +189,7 @@ def validation_process(parser:argparse):
 
 def main(args=None):
     parser = get_parser(args)
-    params = Params(copy.deepcopy(parser))
+    params = Params(parser)
     params.output_params(params['start_state'])
     il_trainer = create_IL_trainer(params)
     # print training information
