@@ -167,7 +167,7 @@ class Params(object):
     def __setitem__(self, key, value):
         self._params[key] = value
     def __getitem__(self, key):
-        if not self._params.get(key):
+        if self._params.get(key) == None:
             return None
         else:
             return self._params[key]
