@@ -173,7 +173,7 @@ def to_val_parser(parser:argparse):
     parser['just_val'] = False
     parser['output_csv'] = True
     parser['new_folder'] = True
-    
+    parser['eval_on_train'] = False
     parser['specific_folder'] = parser['description']
     
     parser['warm_stage'] = 0
