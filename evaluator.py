@@ -253,9 +253,15 @@ class Evaluator(Params):
             self.results[epoch] = empty_result
 
     def init_dataset(self):
-        self.dataset = IL_dataset(self,
-                                transform=transforms.Compose([Normalizer(), Resizer()]),
-                                start_state=self['state'])
+        if self['eval_on_train']:
+            self.dataset = IL_dataset(self,
+                                    transform=transforms.Compose([Normalizer(), Resizer()]),
+                                    start_state=self['state'],
+                                    use_all_class=True)
+        else:
+            self.dataset = IL_dataset(self,
+                                    transform=transforms.Compose([Normalizer(), Resizer()]),
+                                    start_state=self['state'])
     def get_result_path(self, epoch:int):
         """
             Args:

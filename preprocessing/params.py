@@ -143,9 +143,17 @@ class Params(object):
         create_dir(ckp_path)
         ckp_path = os.path.join(ckp_path, self['scenario'])
         create_dir(ckp_path)
-        for state in range(self['end_state'] + 1):
+
+        
+        if self['end_state']:
+            end_state = self['end_state']
+        else:
+            end_state = self['state']
+            
+        for state in range(end_state + 1):
             dir_name = os.path.join(ckp_path, 'state{}'.format(state))
             create_dir(dir_name)
+
         self['ckp_path'] = ckp_path #  checkpoint path, no state num, for example "root_dir/checkpoint/15_1", "root_dir/checkpoint/20"
         self['data_path'] = os.path.join(self['root_dir'], 'dataset', self['dataset']) # the training data path
 
@@ -159,7 +167,10 @@ class Params(object):
     def __setitem__(self, key, value):
         self._params[key] = value
     def __getitem__(self, key):
-        return self._params[key]
+        if not self._params.get(key):
+            return None
+        else:
+            return self._params[key]
 
     def init_warmup(self):
         if self['warm_stage'] == 0:
