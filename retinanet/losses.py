@@ -365,7 +365,11 @@ class IL_Loss():
                 reg_mask = torch.logical_and(bg_masks, prev_fg_mask.any(dim=2))
                 dist_reg_loss = self.smoothL1Loss(prev_regression[reg_mask], regression[reg_mask])
                 # dist_reg_loss = self.smoothL1Loss(prev_regression[greater.any(dim=2)], regression[greater.any(dim=2)])
-                dist_class_loss = nn.MSELoss()(prev_classification[prev_fg_mask], classification[prev_fg_mask])
+
+                if self.params['ignore_GD']:
+                    dist_class_loss = nn.MSELoss()(prev_classification[reg_mask], classification[reg_mask])
+                else:
+                    dist_class_loss = nn.MSELoss()(prev_classification[prev_fg_mask], classification[prev_fg_mask])
 
                 # add background loss if distill with logits
                 # if distill_logits and self.il_trainer.params['distill_logits_bg_loss']:

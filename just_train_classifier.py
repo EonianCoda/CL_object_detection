@@ -98,7 +98,7 @@ def get_parser(args=None):
     parser.add_argument('--warm_layers', help='the layers which will be warmed up, must be "output", "resnet", "fpn", and split each stage by space " "', nargs='*', default=['output','resnet'])
 
     # IL params 
-    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', type=int, nargs="+", default=[20])
+    parser.add_argument('--scenario', help='the scenario of states, must be "20", "19 1", "10 10", "15 1", "15 1 1 1 1"', nargs="+", default=[20])
     parser.add_argument('--shuffle_class', help='whether shuffle the class, default = False',type=str2bool , default=False)
     parser.add_argument('--distill', help='whether add distillation loss, default = False',type=str2bool , default=False)
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)
