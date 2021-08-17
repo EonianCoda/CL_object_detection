@@ -244,8 +244,7 @@ class IL_Loss():
         for new_class_idx in range(num_new_classes):
             for class_idx in range(num_prev_classes):
                 for i in range(num_anchors):
-                    start_idx = i * num_classes
-                    sim_loss += cos_sim_loss(cur_classifier.weight.data[start_idx + new_class_idx + num_prev_classes,...], past_classifier.weight.data[start_idx + class_idx,...])
+                    sim_loss += cos_sim_loss(cur_classifier.weight.data[i * num_classes + new_class_idx + num_prev_classes,...], past_classifier.weight.data[i * num_prev_classes + class_idx,...])
 
         return sim_loss 
                     
