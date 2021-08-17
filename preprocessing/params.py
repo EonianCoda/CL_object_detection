@@ -63,9 +63,10 @@ class IL_states(object):
             elif isinstance(target, int):
                 scenario_list[idx] = target
                 total_num += target
-        # for 15+1=train
-        # if scenario_list == [15,1]:
-        #     classes[15] = 'train'
+                
+        #for 15+1=train
+        if scenario_list == [15,1]:
+            classes[15] = 'train'
 
 
         total_num = 0

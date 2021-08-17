@@ -222,6 +222,34 @@ class IL_Loss():
         self.focal_loss = FocalLoss()
         self.classifier_act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
+
+
+
+    def cal_classifier_loss(self, delta=0.5):
+        def cos_sim_loss(a, b):
+            return torch.clip((torch.dot(a.flatten(), b.flatten()) / (torch.norm(a) * torch.norm(b))) - delta, min=0.0)
+        if self.params['classifier_loss'] == False:
+            raise ValueError("Please enable classifier loss first")
+
+        num_anchors = self.il_trainer.prev_model.classificationModel.num_anchors
+        
+        num_prev_classes = self.il_trainer.prev_model.num_classes
+        num_classes = self.il_trainer.model.num_classes
+        num_new_classes = num_classes - num_prev_classes
+        
+        cur_classifier = self.il_trainer.prev_model.classificationModel.output
+        past_classifier = self.il_trainer.model.classificationModel.output
+        
+        sim_loss = torch.Tensor([0.0]).float().cuda()
+        for new_class_idx in range(num_new_classes):
+            for class_idx in range(num_prev_classes):
+                for i in range(self.num_anchors):
+                    start_idx = i * num_classes
+                    sim_loss += cos_sim_loss(cur_classifier[start_idx + new_class_idx + num_prev_classes,...], past_classifier[start_idx + class_idx,..._])
+
+        return sim_loss 
+                    
+
     def forward(self, img_batch, annotations, is_replay=False, is_bic=False):
         """
             Args:
@@ -299,13 +327,17 @@ class IL_Loss():
                 result['enhance_loss'] = enhance_loss
         # incremental state
         else:
+            
+
             classification, regression, features, anchors = self.il_trainer.model(img_batch, 
                                                                                 return_feat=True, 
                                                                                 return_anchor=True, 
                                                                                 enable_act=False)
+                                                                                    
             # Bic method
             if self.params['bic']:
                 classification = self.il_trainer.bic.bic_correction(classification)
+           
             # Compute focal loss
             losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
             result['cls_loss'] = losses['cls_loss'].mean()
@@ -319,6 +351,8 @@ class IL_Loss():
             
             # Compute distillation loss
             if self.params['distill']:
+                if self.params['classifier_loss']:
+                    result['sim_loss'] = self.cal_classifier_loss()
                 with torch.no_grad():
                     prev_classification, prev_regression, prev_features = self.il_trainer.prev_model(img_batch,
                                                                                                     return_feat=True, 

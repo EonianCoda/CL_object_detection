@@ -135,6 +135,7 @@ def get_parser(args=None):
     parser.add_argument('--ignore_GD', type=str2bool, default=False)
     parser.add_argument('--new_ignore_past_class', type=str2bool, default=False)
     parser.add_argument('--enhance_on_new', type=str2bool, default=False)
+    parser.add_argument('--classifier_loss', type=str2bool, default=False)
 
     # Record
     parser.add_argument('--output_examplar', help='whether output the .png for examplars, default = True',  type=str2bool, default=True)
