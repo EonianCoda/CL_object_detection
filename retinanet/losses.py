@@ -243,9 +243,9 @@ class IL_Loss():
         sim_loss = torch.Tensor([0.0]).float().cuda()
         for new_class_idx in range(num_new_classes):
             for class_idx in range(num_prev_classes):
-                for i in range(self.num_anchors):
+                for i in range(num_anchors):
                     start_idx = i * num_classes
-                    sim_loss += cos_sim_loss(cur_classifier[start_idx + new_class_idx + num_prev_classes,...], past_classifier[start_idx + class_idx,..._])
+                    sim_loss += cos_sim_loss(cur_classifier.weight.data[start_idx + new_class_idx + num_prev_classes,...], past_classifier.weight.data[start_idx + class_idx,...])
 
         return sim_loss 
                     
