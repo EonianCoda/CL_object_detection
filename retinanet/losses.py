@@ -237,16 +237,17 @@ class IL_Loss():
         num_classes = self.il_trainer.model.num_classes
         num_new_classes = num_classes - num_prev_classes
         
-        cur_classifier = self.il_trainer.prev_model.classificationModel.output
-        past_classifier = self.il_trainer.model.classificationModel.output
+        past_classifier = self.il_trainer.prev_model.classificationModel.output
+        cur_classifier = self.il_trainer.model.classificationModel.output
         
-        sim_loss = torch.Tensor([0.0]).float().cuda()
+        sim_loss = torch.tensor(0).float().cuda()
         for new_class_idx in range(num_new_classes):
             for class_idx in range(num_prev_classes):
                 for i in range(num_anchors):
-                    sim_loss += cos_sim_loss(cur_classifier.weight.data[i * num_classes + new_class_idx + num_prev_classes,...], past_classifier.weight.data[i * num_prev_classes + class_idx,...])
+                    sim_loss += cos_sim_loss(cur_classifier.weight.data[i * num_classes + new_class_idx + num_prev_classes,...], 
+                                            past_classifier.weight.data[i * num_prev_classes + class_idx,...])
 
-        return sim_loss 
+        return (sim_loss / num_new_classes)
                     
 
     def forward(self, img_batch, annotations, is_replay=False, is_bic=False):
@@ -351,7 +352,8 @@ class IL_Loss():
             # Compute distillation loss
             if self.params['distill']:
                 if self.params['classifier_loss']:
-                    result['sim_loss'] = self.cal_classifier_loss()
+                    # divide by batch_size
+                    result['sim_loss'] = self.cal_classifier_loss() / classification.shape[0]
                 with torch.no_grad():
                     prev_classification, prev_regression, prev_features = self.il_trainer.prev_model(img_batch,
                                                                                                     return_feat=True, 
