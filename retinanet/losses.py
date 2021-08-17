@@ -227,7 +227,7 @@ class IL_Loss():
 
     def cal_classifier_loss(self, delta=0.5):
         def cos_sim_loss(a, b):
-            return torch.clip((torch.dot(a.flatten(), b.flatten()) / (torch.norm(a) * torch.norm(b))) - delta, min=0.0)
+            return torch.clip((torch.dot(a.flatten(), b.flatten()) / (torch.norm(a) * torch.norm(b))).abs() - delta, min=0.0)
         if self.params['classifier_loss'] == False:
             raise ValueError("Please enable classifier loss first")
 
