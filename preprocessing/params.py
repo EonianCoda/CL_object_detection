@@ -50,23 +50,28 @@ class IL_states(object):
         if shuffle:
             random.shuffle(classes)
 
-        total_num = 0
-        for idx, target in enumerate(scenario_list):
-            if isinstance(target, str):
-                if target.isnumeric():
-                    scenario_list[idx] = int(target)
-                    total_num += int(target)
-                else:
-                    classes[total_num] = target
-                    scenario_list[idx] = 1
-                    total_num += 1
-            elif isinstance(target, int):
-                scenario_list[idx] = target
-                total_num += target
+
+        if scenario_list == ['15','1']:
+            scenario_list = [15, 1]
+            classes[15] = 'train'
+        else:
+        
+            total_num = 0
+            for idx, target in enumerate(scenario_list):
+                if isinstance(target, str):
+                    if target.isnumeric():
+                        scenario_list[idx] = int(target)
+                        total_num += int(target)
+                    else:
+                        classes[total_num] = target
+                        scenario_list[idx] = 1
+                        total_num += 1
+                elif isinstance(target, int):
+                    scenario_list[idx] = target
+                    total_num += target
                 
         #for 15+1=train
-        if scenario_list == [15,1]:
-            classes[15] = 'train'
+       
 
 
         total_num = 0

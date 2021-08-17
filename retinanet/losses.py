@@ -223,31 +223,71 @@ class IL_Loss():
         self.classifier_act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
 
+        # calculate past classifer'norm 
+        if self.params['classifier_loss']:
+            classifier = self.il_trainer.prev_model.classificationModel.output
+            num_anchors = self.il_trainer.prev_model.classificationModel.num_anchors
+            num_prev_classes = self.il_trainer.prev_model.num_classes
 
-
-    def cal_classifier_loss(self, delta=0.5):
-        def cos_sim_loss(a, b):
-            return torch.clip((torch.dot(a.flatten(), b.flatten()) / (torch.norm(a) * torch.norm(b))).abs() - delta, min=0.0)
-        if self.params['classifier_loss'] == False:
-            raise ValueError("Please enable classifier loss first")
-
-        num_anchors = self.il_trainer.prev_model.classificationModel.num_anchors
-        
-        num_prev_classes = self.il_trainer.prev_model.num_classes
-        num_classes = self.il_trainer.model.num_classes
-        num_new_classes = num_classes - num_prev_classes
-        
-        past_classifier = self.il_trainer.prev_model.classificationModel.output
-        cur_classifier = self.il_trainer.model.classificationModel.output
-        
-        sim_loss = torch.tensor(0).float().cuda()
-        for new_class_idx in range(num_new_classes):
+            self.past_classifer = []
+            self.past_classifier_norm = []
             for class_idx in range(num_prev_classes):
-                for i in range(num_anchors):
-                    sim_loss += cos_sim_loss(cur_classifier.weight.data[i * num_classes + new_class_idx + num_prev_classes,...], 
-                                            past_classifier.weight.data[i * num_prev_classes + class_idx,...])
+                indices = [i * num_prev_classes + class_idx for i in range(num_anchors)]
 
-        return (sim_loss / num_new_classes)
+                indices = torch.tensor(indices).long()
+                self.past_classifer.append(torch.index_select(classifier, 0, indices).flatten().unsqueeze(dim=0))
+                self.past_classifier_norm.append(torch.norm(self.past_classifer[-1]).unsqueeze(dim=0))
+
+            
+            self.past_classifer = torch.cat(self.past_classifer).cpu()
+            self.past_classifier_norm = torch.cat(self.past_classifier_norm).cpu()
+
+        def cal_classifier_loss(self, delta=0.5):
+           
+            if self.params['classifier_loss'] == False:
+                raise ValueError("Please enable classifier loss first")
+
+            num_anchors = self.il_trainer.prev_model.classificationModel.num_anchors
+            num_classes = self.il_trainer.model.num_classes
+            num_prev_classes = self.il_trainer.prev_model.num_classes
+            num_new_classes = num_classes - num_prev_classes
+            
+            cur_classifier = self.il_trainer.model.classificationModel.output
+            
+            sim_loss = torch.tensor(0).float().cuda()
+            for class_idx in range(num_new_classes):
+                indices = [i * num_classes + num_prev_classes + class_idx for i in range(num_anchors)]
+                indices = torch.tensor(indices).long()
+                w = torch.index_select(cur_classifier, 0, indices).flatten()
+
+                loss = torch.sum(torch.mul(w, self.past_classifer).sum(dim=1) / (self.past_classifier_norm * torch.norm(w)))
+                loss = torch.clamp(loss.abs() - delta, min=0)
+                sim_loss += loss
+
+            return (sim_loss / num_new_classes)
+    # def cal_classifier_loss(self, delta=0.5):
+    #     def cos_sim_loss(a, b):
+    #         return torch.clip((torch.dot(a.flatten(), b.flatten()) / (torch.norm(a) * torch.norm(b))).abs() - delta, min=0.0)
+    #     if self.params['classifier_loss'] == False:
+    #         raise ValueError("Please enable classifier loss first")
+
+    #     num_anchors = self.il_trainer.prev_model.classificationModel.num_anchors
+        
+        
+    #     num_classes = self.il_trainer.model.num_classes
+    #     num_new_classes = num_classes - num_prev_classes
+        
+    #     past_classifier = self.il_trainer.prev_model.classificationModel.output
+    #     cur_classifier = self.il_trainer.model.classificationModel.output
+        
+    #     sim_loss = torch.tensor(0).float().cuda()
+    #     for new_class_idx in range(num_new_classes):
+    #         for class_idx in range(num_prev_classes):
+    #             for i in range(num_anchors):
+    #                 sim_loss += cos_sim_loss(cur_classifier.weight.data[i * num_classes + new_class_idx + num_prev_classes,...], 
+    #                                         past_classifier.weight.data[i * num_prev_classes + class_idx,...])
+
+    #    return (sim_loss / num_new_classes)
                     
 
     def forward(self, img_batch, annotations, is_replay=False, is_bic=False):
@@ -353,7 +393,7 @@ class IL_Loss():
             if self.params['distill']:
                 if self.params['classifier_loss']:
                     # divide by batch_size
-                    result['sim_loss'] = self.cal_classifier_loss() / classification.shape[0]
+                    result['sim_loss'] = self.cal_classifier_loss()
                 with torch.no_grad():
                     prev_classification, prev_regression, prev_features = self.il_trainer.prev_model(img_batch,
                                                                                                     return_feat=True, 
