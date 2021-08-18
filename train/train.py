@@ -45,8 +45,9 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             loss += mas_loss
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
-        
+        if not warm_classifier and not il_trainer.params['no_clip']:
+            torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+
         # warm classifier
         if warm_classifier:
             classificationModel = il_trainer.model.classificationModel
@@ -124,6 +125,8 @@ def train_process(il_trainer : IL_Trainer):
             start_epoch = 1
             end_epoch = il_trainer.params.params['new_state_epoch']
         
+
+        
         for cur_epoch in range(start_epoch, end_epoch + 1):
             # Some Log 
             avg_times = []
@@ -136,7 +139,10 @@ def train_process(il_trainer : IL_Trainer):
 
             not_warm_classifier = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
 
+
+            
             # Training Dataset
+            il_trainer.optimizer.param_groups[0]['betas'] = (0.9, 0.999)
             for iter_num, data in enumerate(il_trainer.dataloader_train):
                 start = time.time()
                 if il_trainer.params['agem']:
@@ -161,6 +167,8 @@ def train_process(il_trainer : IL_Trainer):
                 print("Start Replay!")
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
+
+                il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     start = time.time()
                     losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
