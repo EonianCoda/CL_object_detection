@@ -182,7 +182,6 @@ class Bic_dataset(IL_dataset):
 
         return annotations
 
-
 class Replay_dataset(IL_dataset):
     def __init__(self, params, transform=None):
         """

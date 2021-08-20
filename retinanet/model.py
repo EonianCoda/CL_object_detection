@@ -129,7 +129,23 @@ class ClassificationModel(nn.Module):
 
         self.output = nn.Conv2d(feature_size, num_anchors * num_classes, kernel_size=3, padding=1) #num_anchors(A) * num_classes(K)
         self.output_act = nn.Sigmoid()
+
+
+    def extract_feature(self, x):
+        out = self.conv1(x)
+        out = self.act1(out)
+
+        out = self.conv2(out)
+        out = self.act2(out)
+
+        out = self.conv3(out)
+        out = self.act3(out)
+
+        out = self.conv4(out)
+        out = self.act4(out)
         
+        return out
+
     def forward(self, x, enable_act=True):
         """
             Args:
@@ -334,7 +350,24 @@ class ResNet(nn.Module):
         x4 = self.layer4(x3)
         features = self.fpn([x2, x3, x4])
         return features
-        
+    
+    def get_classification_feature(self, img_batch):
+        x = self.conv1(img_batch)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
+
+        features = self.fpn([x2, x3, x4])
+
+        classification = [self.classificationModel.extract_feature(feature) for feature in features]
+
+        return classification
+
     def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
         """ model forward transfer
             Args:
