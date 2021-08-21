@@ -189,12 +189,12 @@ class ProtoTyper(object):
                             transform=transforms.Compose([Normalizer(), Resizer()]),
                             start_state=state)
 
-        sampler = AspectRatioBasedSampler(self.il_trainer.dataset_train, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
+        sampler = AspectRatioBasedSampler(dataset, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
         img_ids = []
         for g in sampler.groups:
             img_ids.extend(g)
         for i in range(len(img_ids)):
-            img_ids[i] = self.il_trainer.dataset_train.image_ids[img_ids[i]]
+            img_ids[i] = dataset.image_ids[img_ids[i]]
 
 
         sample_file = {}
