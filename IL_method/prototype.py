@@ -60,7 +60,7 @@ class ProtoTyper(object):
         sampler = AspectRatioBasedSampler(dataset, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
         dataloader = DataLoader(dataset, num_workers=2, collate_fn=collater, batch_sampler=sampler)
         model = self.il_trainer.model
-        num_classes = model.ClassificationModel.num_classes
+        num_classes = model.classificationModel.num_classes
 
         batch_size = self.il_trainer.params['batch_size']
         for idx, data in enumerate(dataloader):
@@ -119,7 +119,7 @@ class ProtoTyper(object):
             #self.prototype_features = self.prototype_features.unsqueeze(dim = 0)
         else:
             # calculate the features for all training data
-            self._cal_features()
+            self._cal_features(feature_temp_path)
 
             # use the temp file for features to calculate the prototype
             count = torch.zeros(num_classes, self.num_anchors, 1)
@@ -148,7 +148,8 @@ class ProtoTyper(object):
 
         path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state))
         file_name = "classification_herd_samples.pickle"
-        if os.path.isfile(path, file_name):
+
+        if os.path.isfile(os.path.join(path, file_name)):
             return
 
 
@@ -187,16 +188,10 @@ class ProtoTyper(object):
             img_ids[i] = self.il_trainer.dataset_train.image_ids[img_ids[i]]
 
 
-        # examplar_dict = {}
-        # examplar_list = []
-
-        # per_num = 1
-
         sample_file = {}
-
         for class_id in range(num_classes):
-            # examplar_dict[class_id] = []
-            # sample_file[class_id] = {}
+
+            sample_file[class_id] = {}
             for anchor_id in range(self.num_anchors):
                 cur_distance = distance[:,class_id, anchor_id]
                 nonzero_ids = cur_distance.nonzero().squeeze()
@@ -206,14 +201,6 @@ class ProtoTyper(object):
 
                 sample_file[class_id][anchor_id] = sorted_ids.tolist()
 
-                # count = per_num
-                # for _id in sorted_ids:
-                #     if _id not in examplar_list:
-                #         examplar_list.append(int(_id))
-                #         examplar_dict[class_id].append(int(_id))
-                #         count -= 1
-                #         if count == 0:
-                #             break
 
 
 
