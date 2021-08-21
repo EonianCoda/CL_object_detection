@@ -7,6 +7,7 @@ import pickle
 import matplotlib.pyplot as plt
 import cv2
 # torch
+import torch
 import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
@@ -118,15 +119,46 @@ class IL_Trainer(object):
             with open(os.path.join(path, 'classification_herd_samples.pickle'), 'rb') as f:
                 sample_dict, count = pickle.load(f)
 
-            if self.params['sample_num'] != 9:
-                raise ValueError("classification_herd sample method must have num 9!")
+            count = count.squeeze()
+            ranked_count = torch.argsort(count, descending=True).int()
+
+
+            examplar_dict = {}
             sample_img_ids = []
+            per_num = self.params['sample_num']
+            
+            num_anchors = len(ranked_count[0])
+            sample_for_each_anchor = [0 for _ in range(num_anchors)]
+            
+            i = 0
+            for _ in range(per_num):
+                sample_for_each_anchor[i] += 1
+                i = (i + 1) % num_anchors
+
+
             for class_id in sample_dict.keys():
-                for anchor_id in sample_dict[class_id].keys():
+                examplar_dict[class_id] = []
+                for idx, anchor_id in enumerate(ranked_count[class_id]):
+                    anchor_id = int(anchor_id)
+
+                    cur_anchor_num_sample = sample_for_each_anchor[idx]
+                    if cur_anchor_num_sample == 0:
+                        continue
                     for img_id in sample_dict[class_id][anchor_id]:
                         if img_id not in sample_img_ids:
                             sample_img_ids.append(img_id)
-                            break
+                            examplar_dict[class_id].append(img_id)
+                            cur_anchor_num_sample -= 1
+                            if cur_anchor_num_sample == 0:
+                                break
+
+            # sample_img_ids = []
+            # for class_id in sample_dict.keys():
+            #     for anchor_id in sample_dict[class_id].keys():
+            #         for img_id in sample_dict[class_id][anchor_id]:
+            #             if img_id not in sample_img_ids:
+            #                 sample_img_ids.append(img_id)
+            #                 break
             
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=sample_img_ids)
 
