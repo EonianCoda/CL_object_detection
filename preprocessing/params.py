@@ -151,7 +151,7 @@ class Params(object):
         create_dir(ckp_path)
 
         
-        if self['end_state']:
+        if self['end_state'] != None:
             end_state = self['end_state']
         else:
             end_state = self['state']

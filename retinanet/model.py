@@ -142,7 +142,7 @@ class ClassificationModel(nn.Module):
         out = self.act3(out)
 
         out = self.conv4(out)
-        out = self.act4(out)
+        #out = self.act4(out)
         
         return out
 
@@ -364,9 +364,11 @@ class ResNet(nn.Module):
 
         features = self.fpn([x2, x3, x4])
 
-        classification = [self.classificationModel.extract_feature(feature) for feature in features]
-
-        return classification
+        sliding = nn.Unfold(kernel_size=(3,3), padding=1)
+        features = [self.classificationModel.extract_feature(feature) for feature in features]
+        features = torch.cat([sliding(f) for f in features], dim=2).permute(0,2,1)
+        anchors = self.anchors(img_batch)
+        return features, anchors
 
     def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
         """ model forward transfer
