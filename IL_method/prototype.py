@@ -11,7 +11,7 @@ from torchvision import transforms
 
 # my package
 from retinanet.losses import calc_iou
-from retinanet.dataloader import Resizer, Augmenter, Normalizer, collater, AspectRatioBasedSampler
+from retinanet.dataloader import IL_dataset, Resizer, Augmenter, Normalizer, collater, AspectRatioBasedSampler
 from preprocessing.params import create_dir
 
 class ProtoTyper(object):
@@ -19,6 +19,7 @@ class ProtoTyper(object):
         self.il_trainer = il_trainer
         self.thresold = thresold
         self.num_anchors = self.il_trainer.model.classificationModel.num_anchors
+        self.prototype_features = None
 
     def _get_positive(self, anchors, annotations):
 
@@ -45,16 +46,16 @@ class ProtoTyper(object):
 
         return positive_indices, targets
 
-    def _cal_features(self, feature_temp_path:str):
+    def _cal_features(self, feature_temp_path:str, state:int):
         """calculate the features for each image and store in  feature_temp_path
         Args:
             feature_temp_path(str): the path for store the features for each image
         """
-        dataset = self.il_trainer.dataset_train
-        
 
-        # close the augumenter
-        dataset.transform = transforms.Compose([Normalizer(), Resizer()])
+    
+        dataset = IL_dataset(self.il_trainer.params,
+                    transform=transforms.Compose([Normalizer(), Resizer()]),
+                    start_state=state)
 
         # create the dataloader for cal the features
         sampler = AspectRatioBasedSampler(dataset, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
@@ -100,9 +101,8 @@ class ProtoTyper(object):
                     with open(os.path.join(feature_temp_path, 'f_{}.pickle'.format(iter_num)), 'wb') as f:
                         pickle.dump((prototype_features.cpu(), count.cpu()), f)
 
-        # recover the transform
-        dataset.transform = transforms.Compose([Normalizer(), Augmenter(), Resizer()])
         del dataloader
+        del dataset
 
     def init_prototype(self, state:int):
         
@@ -114,12 +114,12 @@ class ProtoTyper(object):
         path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state))
         file_name = "prototype_features.pickle"
         if os.path.isfile(os.path.join(path, file_name)):
+            # load the prototype
             with open(os.path.join(path, file_name), "rb") as f:
                 self.prototype_features = pickle.load(f)
-            #self.prototype_features = self.prototype_features.unsqueeze(dim = 0)
         else:
             # calculate the features for all training data
-            self._cal_features(feature_temp_path)
+            self._cal_features(feature_temp_path, state)
 
             # use the temp file for features to calculate the prototype
             count = torch.zeros(num_classes, self.num_anchors, 1)
@@ -163,7 +163,11 @@ class ProtoTyper(object):
 
         num_files = len(os.listdir(feature_temp_path))
         if num_files == 0:
-            raise ValueError("The feature temp file isn't exist, please call _cal_features first!")
+            self.init_prototype(state)
+        num_files = len(os.listdir(feature_temp_path))
+        if num_files == 0:
+            raise ValueError("Unknowing Error in cal_examplar")
+
         for i in range(num_files):
             with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
                 feat, num = pickle.load(f)
@@ -179,6 +183,9 @@ class ProtoTyper(object):
         distance *= distance_target
 
 
+        dataset = IL_dataset(self.il_trainer.params,
+                            transform=transforms.Compose([Normalizer(), Resizer()]),
+                            start_state=state)
 
         sampler = AspectRatioBasedSampler(self.il_trainer.dataset_train, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
         img_ids = []
@@ -201,8 +208,10 @@ class ProtoTyper(object):
 
                 sample_file[class_id][anchor_id] = sorted_ids.tolist()
 
-
-
-
         with open(os.path.join(path, file_name),'wb') as f:
             pickle.dump((sample_file, count), f)
+
+
+    def __del__(self):
+        if self.prototype_features != None:
+            del self.prototype_features

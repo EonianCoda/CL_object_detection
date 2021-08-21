@@ -1,5 +1,6 @@
 # built-in
 
+from IL_method.prototype import ProtoTyper
 from IL_method.bic import Bic_Trainer
 import collections
 import os
@@ -116,12 +117,19 @@ class IL_Trainer(object):
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
         elif self.params['sample_method'] == 'classification_herd':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-            with open(os.path.join(path, 'classification_herd_samples.pickle'), 'rb') as f:
+            file_name = 'classification_herd_samples.pickle'
+
+            if not os.path.isfile(os.path.join(path, file_name)):
+                protoTyper = ProtoTyper(self)
+                protoTyper.cal_examplar(self.cur_state - 1)
+                del protoTyper
+
+                
+            with open(os.path.join(path, file_name), 'rb') as f:
                 sample_dict, count = pickle.load(f)
 
             count = count.squeeze()
             ranked_count = torch.argsort(count, descending=True).int()
-
 
             examplar_dict = {}
             sample_img_ids = []
