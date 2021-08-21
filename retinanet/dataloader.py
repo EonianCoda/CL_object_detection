@@ -410,14 +410,15 @@ class UnNormalizer(object):
 
 class AspectRatioBasedSampler(Sampler):
 
-    def __init__(self, data_source, batch_size, drop_last):
+    def __init__(self, data_source, batch_size, drop_last,shuffle=True):
         self.data_source = data_source
         self.batch_size = batch_size
         self.drop_last = drop_last
         self.groups = self.group_images()
-
+        self.shuffle = shuffle
     def __iter__(self):
-        random.shuffle(self.groups)
+        if self.shuffle:
+            random.shuffle(self.groups)
         for group in self.groups:
             yield group
 

@@ -113,6 +113,23 @@ class IL_Trainer(object):
             self.herd_sampler = Herd_sampler(self)
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
+        elif self.params['sample_method'] == 'classification_herd':
+            path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+            with open(os.path.join(path, 'classification_herd_samples.pickle'), 'rb') as f:
+                sample_dict = pickle.load(f)
+
+            if self.params['sample_num'] != 9:
+                raise ValueError("classification_herd sample method must have num 9!")
+            sample_img_ids = []
+            for class_id in sample_dict.keys():
+                for anchor_id in sample_dict[class_id].keys():
+                    for img_id in sample_dict[class_id][anchor_id]:
+                        if img_id not in sample_img_ids:
+                            sample_img_ids.append(img_id)
+                            break
+            
+            self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=sample_img_ids)
+
         elif self.params['sample_method'] == 'maxNum':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
             with open(os.path.join(path, 'maxNum_scores.pickle'), 'rb') as f:
