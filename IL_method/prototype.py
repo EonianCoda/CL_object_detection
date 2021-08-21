@@ -16,9 +16,9 @@ from preprocessing.params import create_dir
 
 class ProtoTyper(object):
     def __init__(self, il_trainer, thresold = 0.5):
-        self.il_triner = il_trainer
+        self.il_trainer = il_trainer
         self.thresold = thresold
-        self.num_anchors = self.il_triner.model.classificationModel.num_anchors
+        self.num_anchors = self.il_trainer.model.classificationModel.num_anchors
 
     def _get_positive(self, anchors, annotations):
 
@@ -106,7 +106,7 @@ class ProtoTyper(object):
 
     def init_prototype(self, state:int):
         
-        num_classes = self.il_triner.model.classificationModel.num_classes
+        num_classes = self.il_trainer.model.classificationModel.num_classes
         feature_temp_path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state), 'features')
         create_dir(feature_temp_path)
 
@@ -154,7 +154,7 @@ class ProtoTyper(object):
 
         feature_temp_path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state), 'features')
         create_dir(feature_temp_path)
-        num_classes = self.il_triner.model.classificationModel.num_classes
+        num_classes = self.il_trainer.model.classificationModel.num_classes
 
 
         feats = []
