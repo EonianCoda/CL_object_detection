@@ -116,7 +116,7 @@ class IL_Trainer(object):
         elif self.params['sample_method'] == 'classification_herd':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
             with open(os.path.join(path, 'classification_herd_samples.pickle'), 'rb') as f:
-                sample_dict = pickle.load(f)
+                sample_dict, count = pickle.load(f)
 
             if self.params['sample_num'] != 9:
                 raise ValueError("classification_herd sample method must have num 9!")
