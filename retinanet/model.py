@@ -142,9 +142,23 @@ class ClassificationModel(nn.Module):
         out = self.act3(out)
 
         out = self.conv4(out)
-        #out = self.act4(out)
-        
+
         return out
+    def classify(self, x, enable_act=True):
+        out = self.act4(x)
+
+        out = self.output(out)
+        if enable_act:
+            out = self.output_act(out)
+
+        # out is B x C x W x H, with C = n_classes + n_anchors
+        out1 = out.permute(0, 2, 3, 1)
+
+        batch_size, width, height, channels = out1.shape
+
+        out2 = out1.view(batch_size, width, height, self.num_anchors, self.num_classes)
+
+        return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
     def forward(self, x, enable_act=True):
         """
@@ -369,6 +383,35 @@ class ResNet(nn.Module):
         features = torch.cat([sliding(f) for f in features], dim=2).permute(0,2,1)
         anchors = self.anchors(img_batch)
         return features, anchors
+
+    
+    def forward_prototype(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
+        x = self.conv1(img_batch)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x1 = self.layer1(x)
+        x2 = self.layer2(x1)
+        x3 = self.layer3(x2)
+        x4 = self.layer4(x3)
+
+        features = self.fpn([x2, x3, x4])
+        regression = torch.cat([self.regressionModel(feature) for feature in features], dim=1)  #shape = (batch_size, W*H*A(Anchor_num), 4)
+        
+        sliding = nn.Unfold(kernel_size=(3,3), padding=1)
+        cls_features = [self.classificationModel.extract_feature(feature) for feature in features]
+        classification = torch.cat([self.classificationModel.classify(feature, enable_act) for feature in cls_features], dim=1) #shape = (batch_size, W*H*A(Anchor_num), class_num)
+        cls_features = torch.cat([sliding(f) for f in cls_features], dim=2).permute(0,2,1)
+
+        result = [classification, regression]
+        if return_feat:
+            result.append(features)
+        if return_anchor:
+            result.append(self.anchors(img_batch))
+        result.append(cls_features)
+
+        return tuple(result)
 
     def forward(self, img_batch, return_feat=False, return_anchor=True, enable_act=True):
         """ model forward transfer
