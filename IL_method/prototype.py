@@ -128,12 +128,12 @@ class ProtoTyper(object):
             num_files = len(os.listdir(feature_temp_path))
 
             for i in range(num_files):
-                with open(os.path.join(feature_temp_path,'f{}.pickle'.format(i)), 'rb') as f:
+                with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
                     _ , num = pickle.load(f)
                     count += num
 
             for i in range(num_files):
-                with open(os.path.join(feature_temp_path,'f{}.pickle'.format(i)), 'rb') as f:
+                with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
                     feat, _ = pickle.load(f)
                     self.prototype_features += (feat / torch.clamp(count, min=1))
 
@@ -165,7 +165,7 @@ class ProtoTyper(object):
         if num_files == 0:
             raise ValueError("The feature temp file isn't exist, please call _cal_features first!")
         for i in range(num_files):
-            with open(os.path.join(feature_temp_path,'f{}.pickle'.format(i)), 'rb') as f:
+            with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
                 feat, num = pickle.load(f)
                 feats.append((feat / torch.clamp(num, min=1)).unsqueeze(dim=0))
                 count += num
