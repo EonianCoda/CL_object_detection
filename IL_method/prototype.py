@@ -162,11 +162,13 @@ class ProtoTyper(object):
         count = torch.zeros(num_classes, self.num_anchors, 1)
 
         num_files = len(os.listdir(feature_temp_path))
-        if num_files == 0:
+        if num_files == 0 or self.prototype_features == None:
             self.init_prototype(state)
-        num_files = len(os.listdir(feature_temp_path))
-        if num_files == 0:
-            raise ValueError("Unknowing Error in cal_examplar")
+            if num_files == 0:
+                num_files = len(os.listdir(feature_temp_path))
+                if num_files == 0:
+                    raise ValueError("Unknowing Error in cal_examplar")
+
 
         for i in range(num_files):
             with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
