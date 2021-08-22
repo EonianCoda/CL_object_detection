@@ -76,7 +76,7 @@ class ProtoTypeFocalLoss(nn.Module):
             IoU_max, IoU_argmax = torch.max(IoU, dim=1) # shape=(num_anchors x 1)
             
 
-            pos_indices.append(torch.ge(IoU_max, self.thresold).view(-1, num_anchors).unsqueeze(dim=0))
+            pos_indices.append(torch.ge(IoU_max, 0.5).view(-1, num_anchors).unsqueeze(dim=0))
             # target = bbox_annotation[IoU_argmax, 4].view(-1, num_anchors)
 
 
@@ -213,7 +213,10 @@ class ProtoTypeFocalLoss(nn.Module):
         cls_features = cls_features[mask].unsqueeze(dim=1)
         distance = _distance(cls_features, prototype_features)
         prototype_loss = torch.clamp(600 - distance, min=0)
-        prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
+        if (prototype_loss != 0).sum == 0:
+            prototype_loss = torch.tensor(0).float().cuda()
+        else:
+            prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
 
         result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True),
@@ -581,7 +584,7 @@ class IL_Loss():
                                                     cur_state,
                                                     self.params, 
                                                     cls_features, 
-                                                    self.il_trainer.prototyper.prototype_features)
+                                                    self.il_trainer.protoTyper.prototype_features)
 
                 result['cls_loss'] = losses['cls_loss'].mean()
                 result['reg_loss'] = losses['reg_loss'].mean()
