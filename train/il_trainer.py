@@ -134,7 +134,7 @@ class IL_Trainer(object):
         elif self.params['sample_method'] == 'prototype_herd':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
             file_name = 'classification_herd_samples.pickle'
-            if os.path.isfile(os.path.join(path, file_name)):
+            if not os.path.isfile(os.path.join(path, file_name)):
                 raise ValueError("Unkowing Error in init prototype_herd")
             with open(os.path.join(path, file_name), 'rb') as f:
                 sample_dict, count = pickle.load(f)

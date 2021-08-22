@@ -213,7 +213,9 @@ class ProtoTypeFocalLoss(nn.Module):
         cls_features = cls_features[mask].unsqueeze(dim=1)
         distance = _distance(cls_features, prototype_features)
         prototype_loss = torch.clamp(600 - distance, min=0)
-        if (prototype_loss != 0).sum == 0:
+
+
+        if (prototype_loss != 0).sum() == 0:
             prototype_loss = torch.tensor(0).float().cuda()
         else:
             prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
