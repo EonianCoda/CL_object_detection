@@ -20,6 +20,213 @@ def calc_iou(a, b):
 
     return IoU
 
+class ProtoTypeFocalLoss(nn.Module):
+    def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params, cls_features, prototype_features):
+        def _distance(a, b):
+            return torch.norm(a - b, dim=2)
+        alpha = params['alpha'] # default = 0.25
+        gamma = params['gamma'] # default = 2
+        num_anchors = 9
+
+        # whether the state > 0, mean it is incremental state
+        incremental_state = (cur_state > 0)
+        if incremental_state:
+            if params['enhance_on_new']:
+                enhance_loss_on_new = None
+            if params['distill']:
+                bg_masks = []
+
+        batch_size = classifications.shape[0]
+        classification_losses = []
+        regression_losses = []
+
+        anchor = anchors[0, :, :]
+        anchor_widths  = anchor[:, 2] - anchor[:, 0]
+        anchor_heights = anchor[:, 3] - anchor[:, 1]
+        anchor_ctr_x   = anchor[:, 0] + 0.5 * anchor_widths
+        anchor_ctr_y   = anchor[:, 1] + 0.5 * anchor_heights
+        
+        pos_indices = []
+
+        for j in range(batch_size):
+
+            classification = classifications[j, :, :] # shape = (num_anchors, class_num)
+            regression = regressions[j, :, :]
+
+            bbox_annotation = annotations[j, :, :]
+            bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1]
+            
+            classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4)
+
+            if bbox_annotation.shape[0] == 0:
+                alpha_factor = torch.ones(classification.shape, device=torch.device('cuda:0')) * alpha
+
+                alpha_factor = 1. - alpha_factor
+                focal_weight = classification
+                focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+
+                bce = -(torch.log(1.0 - classification))
+
+                cls_loss = focal_weight * bce
+                classification_losses.append(cls_loss.sum())
+                regression_losses.append(torch.tensor(0).float().cuda())
+                continue
+
+            IoU = calc_iou(anchors[0, :, :], bbox_annotation[:, :4]) # shape=(num_anchors, num_annotations)
+            IoU_max, IoU_argmax = torch.max(IoU, dim=1) # shape=(num_anchors x 1)
+            
+
+            pos_indices.append(torch.ge(IoU_max, self.thresold).view(-1, num_anchors).unsqueeze(dim=0))
+            # target = bbox_annotation[IoU_argmax, 4].view(-1, num_anchors)
+
+
+            # compute the loss for classification
+            targets = torch.ones(classification.shape, device=torch.device('cuda:0')) * -1
+    
+            # get background anchor idx
+            bg_mask = torch.lt(IoU_max, 0.4)
+            # whether ignore past class
+            if not incremental_state or (incremental_state and not params['ignore_past_class']):
+                targets[bg_mask, :] = 0
+            else:
+                past_class_num = params.states[cur_state]['num_past_class']
+                targets[bg_mask, past_class_num:] = 0
+                if params['new_ignore_past_class']:
+                    # targets_old = torch.zeros(classification.shape, device=torch.device('cuda:0'))
+                    # targets_old[bg_mask, :past_class_num] = 1
+
+                    old_prod = torch.sum(classification[:, :past_class_num], dim=1)
+                    targets[torch.logical_and(bg_mask, old_prod < 0.5), :past_class_num] = 0
+                    #torch.log(old_prod) * (1 - torch.clamp(old_prod, max=1)) 
+
+            positive_indices = torch.ge(IoU_max, 0.5) 
+
+            # store non positive anchors for distillation loss
+            if incremental_state and params['distill']:
+                bg_masks.append((~positive_indices).unsqueeze(dim=0))
+
+            num_positive_anchors = positive_indices.sum()
+            assigned_annotations = bbox_annotation[IoU_argmax, :]
+
+            targets[positive_indices, :] = 0
+            targets[positive_indices, assigned_annotations[positive_indices, 4].long()] = 1
+            
+
+            if torch.cuda.is_available():
+                alpha_factor = torch.ones(targets.shape , device=torch.device('cuda:0')) * alpha
+                # alpha_factor = torch.ones(targets.shape).cuda() * alpha
+            else: 
+                alpha_factor = torch.ones(targets.shape) * alpha
+            
+
+            if not incremental_state:
+                focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification) #shape = (Anchor_num, class_num)
+            elif params['decrease_positive_by_IOU']:
+                mid_indices = torch.logical_and(torch.le(IoU_max, 0.7), positive_indices)
+
+                focal_weight = torch.where(torch.eq(targets, 1.), 1. - classification, classification)
+
+                targets_for_mid = torch.zeros(classification.shape, device=torch.device('cuda:0'))
+                targets_for_mid[mid_indices, assigned_annotations[mid_indices, 4].long()] = 1
+                
+                upper_score = torch.clip(IoU_max + 0.2, 1e-4, 1 - 1e-4).unsqueeze(dim=1)
+                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 1e-4, torch.abs(classification - upper_score)), focal_weight)
+
+            else:
+                new_class_upper_score = params['decrease_positive']
+                focal_weight = torch.where(torch.eq(targets, 1.), new_class_upper_score - torch.clip(classification, 0, new_class_upper_score), classification)
+
+
+            focal_weight = alpha_factor * torch.pow(focal_weight, gamma)
+            bce = -(targets * torch.log(classification) + (1.0 - targets) * torch.log(1.0 - classification))
+            
+            cls_loss = focal_weight * bce
+            
+            if torch.cuda.is_available():
+                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape, device=torch.device('cuda:0')))
+            else:
+                cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
+
+
+            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+
+
+            if incremental_state and params['enhance_on_new']:
+                new_class_bg = classification[bg_mask, past_class_num:]
+                # false negative mask
+                fn_mask = new_class_bg > 0.05
+                if (fn_mask > 0.05).sum() != 0:
+                    if enhance_loss_on_new == None:
+                        enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+                    else:
+                        enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+
+            # compute the loss for regression
+            if positive_indices.sum() > 0:
+                assigned_annotations = assigned_annotations[positive_indices, :]
+
+                anchor_widths_pi = anchor_widths[positive_indices]
+                anchor_heights_pi = anchor_heights[positive_indices]
+                anchor_ctr_x_pi = anchor_ctr_x[positive_indices]
+                anchor_ctr_y_pi = anchor_ctr_y[positive_indices]
+
+                gt_widths  = assigned_annotations[:, 2] - assigned_annotations[:, 0]
+                gt_heights = assigned_annotations[:, 3] - assigned_annotations[:, 1]
+                gt_ctr_x   = assigned_annotations[:, 0] + 0.5 * gt_widths
+                gt_ctr_y   = assigned_annotations[:, 1] + 0.5 * gt_heights
+
+                # clip widths to 1
+                gt_widths  = torch.clamp(gt_widths, min=1)
+                gt_heights = torch.clamp(gt_heights, min=1)
+
+                targets_dx = (gt_ctr_x - anchor_ctr_x_pi) / anchor_widths_pi
+                targets_dy = (gt_ctr_y - anchor_ctr_y_pi) / anchor_heights_pi
+                targets_dw = torch.log(gt_widths / anchor_widths_pi)
+                targets_dh = torch.log(gt_heights / anchor_heights_pi)
+
+                targets = torch.stack((targets_dx, targets_dy, targets_dw, targets_dh))
+                targets = targets.t()
+
+                if torch.cuda.is_available():
+                    # targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]]).cuda()
+                    targets = targets/ torch.cuda.FloatTensor([[0.1, 0.1, 0.2, 0.2]])
+                else:
+                    targets = targets/torch.Tensor([[0.1, 0.1, 0.2, 0.2]])
+
+                regression_diff = torch.abs(targets - regression[positive_indices, :])
+
+                regression_loss = torch.where(
+                    torch.le(regression_diff, 1.0 / 9.0),
+                    0.5 * 9.0 * torch.pow(regression_diff, 2),
+                    regression_diff - 0.5 / 9.0
+                )
+                regression_losses.append(regression_loss.mean())
+            else:
+                if torch.cuda.is_available():
+                    regression_losses.append(torch.tensor(0).float().cuda())
+                else:
+                    regression_losses.append(torch.tensor(0).float())
+
+        # cal prototype_loss
+        pos_indices = torch.cat(pos_indices)
+        mask = pos_indices.any(dim=2)
+        cls_features = cls_features[mask].unsqueeze(dim=1)
+        distance = _distance(cls_features, prototype_features)
+        prototype_loss = torch.clamp(600 - distance, min=0)
+        prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
+
+        result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
+                  'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True),
+                  'prototype_loss': prototype_loss}
+        
+        if incremental_state:
+            if params['enhance_on_new']:
+                if enhance_loss_on_new != None:
+                    enhance_loss_on_new /= classifications.shape[0]
+                result['enhance_loss_on_new'] = enhance_loss_on_new
+            if params['distill']:
+                result['bg_masks'] = torch.cat(bg_masks)
+        return result
 
 class FocalLoss(nn.Module):
     def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params):
@@ -223,6 +430,14 @@ class IL_Loss():
         self.classifier_act = nn.Sigmoid()
         self.smoothL1Loss = nn.SmoothL1Loss()
 
+
+        if self.params['prototype_loss']:
+            self.prototypefocal_loss = ProtoTypeFocalLoss()
+            # if self.il_trainer.prototyper.prototype_features == None:
+            #     self.il_trainer.prototyper.init_prototype(self.il_trainer.cur_state - 1)
+            _ , _ , feature_channels = self.il_trainer.prototyper.prototype_features.shape    
+            self.il_trainer.prototyper.prototype_features = self.il_trainer.prototyper.prototype_features.unsqueeze(dim=0).view(-1, feature_channels).cuda()
+
         # calculate past classifer'norm 
         if self.params['classifier_loss']:
             classifier = self.il_trainer.prev_model.classificationModel.output.weight.data
@@ -265,9 +480,7 @@ class IL_Loss():
             sim_loss += loss
             
         return sim_loss
-
-
-       
+     
     def forward(self, img_batch, annotations, is_replay=False, is_bic=False):
         """
             Args:
@@ -345,26 +558,46 @@ class IL_Loss():
                 result['enhance_loss'] = enhance_loss
         # incremental state
         else:
-            
-
-            classification, regression, features, anchors = self.il_trainer.model(img_batch, 
-                                                                                return_feat=True, 
-                                                                                return_anchor=True, 
-                                                                                enable_act=False)
+            if self.il_trainer.params['prototype_loss']:
+                classification, regression, features, anchors, cls_features = self.il_trainer.model.forward_prototype(img_batch, 
+                                                                                                        return_feat=True, 
+                                                                                                        return_anchor=True, 
+                                                                                                        enable_act=False)
+            else:
+                classification, regression, features, anchors = self.il_trainer.model(img_batch, 
+                                                                                    return_feat=True, 
+                                                                                    return_anchor=True, 
+                                                                                    enable_act=False)
                                                                                     
             # Bic method
             if self.params['bic']:
                 classification = self.il_trainer.bic.bic_correction(classification)
            
             # Compute focal loss
-            losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
-            result['cls_loss'] = losses['cls_loss'].mean()
-            result['reg_loss'] = losses['reg_loss'].mean()
-            bg_masks = losses['bg_masks']
+            if self.il_trainer.params['prototype_loss']:
+                losses = self.prototypefocal_loss(self.classifier_act(classification), 
+                                                    regression, anchors, 
+                                                    annotations,
+                                                    cur_state,
+                                                    self.params, 
+                                                    cls_features, 
+                                                    self.il_trainer.prototyper.prototype_features)
+
+                result['cls_loss'] = losses['cls_loss'].mean()
+                result['reg_loss'] = losses['reg_loss'].mean()
+                result['prototype_loss'] = losses['prototype_loss']
+                bg_masks = losses['bg_masks']
+            else:
+                losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
+                result['cls_loss'] = losses['cls_loss'].mean()
+                result['reg_loss'] = losses['reg_loss'].mean()
+                bg_masks = losses['bg_masks']
 
             # Whether ignore ground truth
             if self.params['enhance_on_new']:
                 result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
+
+            
 
             
             # Compute distillation loss

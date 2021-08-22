@@ -57,6 +57,7 @@ class IL_Trainer(object):
         # if start state is not initial state, then update incremental learning setting
         if self.cur_state >= 1:
             # The order below is important, because some method dependent on another component
+            self.init_prototyper()
             self.init_replay_dataset()
             self.init_bic()
             self.update_replay_dataloader()
@@ -99,6 +100,21 @@ class IL_Trainer(object):
         self.prev_model.training = False
         self.prev_model.cuda()
 
+    def init_prototyper(self):
+        if self.params['prototype_loss'] or self.params['sample_method'] == 'prototype_herd':
+            self.protoTyper = ProtoTyper(self)
+            if self.params['sample_method'] == 'prototype_herd':
+                path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+                file_name = 'classification_herd_samples.pickle'
+                if not os.path.isfile(os.path.join(path, file_name)):
+                    self.protoTyper = ProtoTyper(self)
+                    self.protoTyper.cal_examplar(self.cur_state - 1)
+            if not self.params['prototype_loss']:
+                del self.protoTyper
+            elif self.protoTyper.prototype_features == None:
+                self.protoTyper.init_prototype(self.cur_state - 1)
+        
+
     def init_replay_dataset(self):
         """init reaply dataset if params['sample_num'] > 0
         """
@@ -115,16 +131,11 @@ class IL_Trainer(object):
             self.herd_sampler = Herd_sampler(self)
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
-        elif self.params['sample_method'] == 'classification_herd':
+        elif self.params['sample_method'] == 'prototype_herd':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
             file_name = 'classification_herd_samples.pickle'
-
-            if not os.path.isfile(os.path.join(path, file_name)):
-                protoTyper = ProtoTyper(self)
-                protoTyper.cal_examplar(self.cur_state - 1)
-                del protoTyper
-
-                
+            if os.path.isfile(os.path.join(path, file_name)):
+                raise ValueError("Unkowing Error in init prototype_herd")
             with open(os.path.join(path, file_name), 'rb') as f:
                 sample_dict, count = pickle.load(f)
 
@@ -159,36 +170,28 @@ class IL_Trainer(object):
                             cur_anchor_num_sample -= 1
                             if cur_anchor_num_sample == 0:
                                 break
-
-            # sample_img_ids = []
-            # for class_id in sample_dict.keys():
-            #     for anchor_id in sample_dict[class_id].keys():
-            #         for img_id in sample_dict[class_id][anchor_id]:
-            #             if img_id not in sample_img_ids:
-            #                 sample_img_ids.append(img_id)
-            #                 break
-            
+  
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=sample_img_ids)
 
-        elif self.params['sample_method'] == 'maxNum':
-            path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-            with open(os.path.join(path, 'maxNum_scores.pickle'), 'rb') as f:
-                classed_max_lists = pickle.load(f)
-            examplar = []
-            for cat_id in self.params.states[self.cur_state - 1]['knowing_class']['id']:
-                nums = [num for num in classed_max_lists[cat_id].keys()]
-                nums.sort(reverse=True)
-                cur_num = 0
-                for num in nums:
-                    for img_id in classed_max_lists[cat_id][num]:
-                        if img_id not in examplar:
-                            examplar.append(img_id)
-                            cur_num += 1
-                            if cur_num == self.params['sample_num']:
-                                break
-                    if cur_num == self.params['sample_num']:
-                        break
-            self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
+        # elif self.params['sample_method'] == 'maxNum':
+        #     path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+        #     with open(os.path.join(path, 'maxNum_scores.pickle'), 'rb') as f:
+        #         classed_max_lists = pickle.load(f)
+        #     examplar = []
+        #     for cat_id in self.params.states[self.cur_state - 1]['knowing_class']['id']:
+        #         nums = [num for num in classed_max_lists[cat_id].keys()]
+        #         nums.sort(reverse=True)
+        #         cur_num = 0
+        #         for num in nums:
+        #             for img_id in classed_max_lists[cat_id][num]:
+        #                 if img_id not in examplar:
+        #                     examplar.append(img_id)
+        #                     cur_num += 1
+        #                     if cur_num == self.params['sample_num']:
+        #                         break
+        #             if cur_num == self.params['sample_num']:
+        #                 break
+        #     self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
         else: # random sample
             self.dataset_replay.reset_by_state(self.cur_state)
 
