@@ -433,10 +433,10 @@ class IL_Loss():
 
         if self.params['prototype_loss']:
             self.prototypefocal_loss = ProtoTypeFocalLoss()
-            # if self.il_trainer.prototyper.prototype_features == None:
-            #     self.il_trainer.prototyper.init_prototype(self.il_trainer.cur_state - 1)
-            _ , _ , feature_channels = self.il_trainer.prototyper.prototype_features.shape    
-            self.il_trainer.prototyper.prototype_features = self.il_trainer.prototyper.prototype_features.unsqueeze(dim=0).view(-1, feature_channels).cuda()
+            # if self.il_trainer.protoTyper.prototype_features == None:
+            #     self.il_trainer.protoTyper.init_prototype(self.il_trainer.cur_state - 1)
+            _ , _ , feature_channels = self.il_trainer.protoTyper.prototype_features.shape    
+            self.il_trainer.protoTyper.prototype_features = self.il_trainer.protoTyper.prototype_features.unsqueeze(dim=0).view(-1, feature_channels).cuda()
 
         # calculate past classifer'norm 
         if self.params['classifier_loss']:
