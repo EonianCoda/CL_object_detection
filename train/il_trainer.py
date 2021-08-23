@@ -131,6 +131,7 @@ class IL_Trainer(object):
             self.herd_sampler = Herd_sampler(self)
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
+
         elif self.params['sample_method'] == 'prototype_herd':
             path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
             file_name = 'classification_herd_samples.pickle'
@@ -138,6 +139,18 @@ class IL_Trainer(object):
                 raise ValueError("Unkowing Error in init prototype_herd")
             with open(os.path.join(path, file_name), 'rb') as f:
                 sample_dict, count = pickle.load(f)
+
+            coco = self.params.states.coco
+
+
+            knowing_class_ids = self.params.states[self.cur_state - 1]['knowing_class']['id']
+            future_ids = []
+            for i in range(1, 20 + 1):
+                if i not in knowing_class_ids:
+                    future_ids.append(i)
+
+            future_img_ids = coco.get_imgs_by_cats(future_ids)
+
 
             count = count.squeeze()
             ranked_count = torch.argsort(count, descending=True).int()
@@ -164,7 +177,7 @@ class IL_Trainer(object):
                     if cur_anchor_num_sample == 0:
                         continue
                     for img_id in sample_dict[class_id][anchor_id]:
-                        if img_id not in sample_img_ids:
+                        if img_id not in sample_img_ids and img_id not in future_img_ids:
                             sample_img_ids.append(img_id)
                             examplar_dict[class_id].append(img_id)
                             cur_anchor_num_sample -= 1
