@@ -309,7 +309,7 @@ class IL_Trainer(object):
             self.update_replay_dataloader()
  
         self.update_dataloader()
-        self.update_prev_model(self.cur_state - 1)
+        self.update_prev_model()
 
     def warm_up(self, epoch:int):
         # No warm-up

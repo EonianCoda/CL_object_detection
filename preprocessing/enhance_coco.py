@@ -1,7 +1,7 @@
 from collections import defaultdict
 import pandas as pd
 from pycocotools.coco import COCO
-
+import numpy as np
 class Enhance_COCO(COCO):
     def __init__(self, path):
 
