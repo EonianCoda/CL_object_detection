@@ -103,7 +103,21 @@ def cal_losses(il_trainer, il_loss, data, is_replay=False):
     return losses
 
 
+def correction_new_class(il_trainer, il_loss, data):
+    with torch.cuda.device(0):
+        losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=True)
 
+        loss = losses['enhance_loss']
+        if bool(loss == 0):
+            return True
+
+        print("Enhance loss : {:.2f}", float(loss))
+        loss.backward()
+        #     torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+
+        il_trainer.optimizer.step()
+        del losses
+        return False
 
 def train_process(il_trainer : IL_Trainer):
     # init training info
@@ -253,6 +267,18 @@ def train_process(il_trainer : IL_Trainer):
             print("Estimated Training Time for this state is {}m{}s".format(avg_times[0],avg_times[1]))
 
         
+        # Correction
+        if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and il_trainer.params['final_correction'] and il_trainer.params['enhance_error']:
+            print("Start Correction!")
+            flag = True
+            while flag:
+                flag = False
+                for iter_num, data in enumerate(il_trainer.dataloader_replay):
+                    if not correction_new_class(il_trainer, il_loss, data):
+                        flag = True
+            il_trainer.save_ckp(None, epoch=end_epoch)
+            
+                    
         if cur_state != end_state:
             il_trainer.next_state()
             if il_trainer.params['record']:

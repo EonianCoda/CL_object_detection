@@ -150,6 +150,8 @@ def get_parser(args=None):
     parser.add_argument('--no_clip', type=str2bool, default=False)
     parser.add_argument('--beta_on_replay', type=float, default=0.9)
     parser.add_argument('--prototype_loss', type=str2bool, default=False)
+    parser.add_argument('--final_correction', type=str2bool, default=False)
+    
 
     # Record
     parser.add_argument('--output_examplar', help='whether output the .png for examplars, default = True',  type=str2bool, default=True)
