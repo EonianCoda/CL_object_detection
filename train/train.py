@@ -69,12 +69,15 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         del losses
     return loss_info
 
-def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_time:float):
+def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_time:float, is_replay:bool):
     """Print Iteration Information
 
     """
     info = [cur_epoch, iter_num]
-    output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
+    if not is_replay:
+        output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
+    else:
+        output = 'Replay | Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
     for key, value in losses.items():
         output += ' | {0[%d]}: {0[%d]:1.4f}' % (len(info), len(info)+1)
         info.extend([key, value])
@@ -180,7 +183,7 @@ def train_process(il_trainer : IL_Trainer):
                 if losses != None:
                     #continue
                     end = time.time()
-                    print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
+                    print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start, is_replay=False)
 
                     # Iteration Log
                     epoch_loss.append(losses['total_loss'])
@@ -199,7 +202,7 @@ def train_process(il_trainer : IL_Trainer):
                             continue
                             
                         end = time.time()
-                        print_iteration_info(il_trainer, losses, cur_epoch, replay_iter_num + i, end - start)
+                        print_iteration_info(il_trainer, losses, cur_epoch, replay_iter_num + i, end - start, is_replay=True)
                         # Iteration Log
                         epoch_loss.append(losses['total_loss'])
                         avg_times.append(end - start)
