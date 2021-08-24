@@ -25,6 +25,22 @@ from IL_method.herd_sample import Herd_sampler
 from IL_method.weight_init import get_similarity
 
 
+WHITE_LIST_FOR_OPTIM = ['classificationModel.output']
+
+def get_parameters(model, white_list=[]):
+    def check(target):
+        for name in white_list:
+            if name in target:
+                return False
+        return True
+    
+    for name, p in model.named_parameters():
+        if not check(name):
+            print(name)
+            continue
+        else:
+            yield p
+
 class IL_Trainer(object):
     def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset, loss_hist=None):
         self.params = params
@@ -286,7 +302,10 @@ class IL_Trainer(object):
             similaritys = None
 
         self.model.next_state(self.get_cur_state()['num_new_class'], similaritys, method)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.params['lr'])
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=self.params['lr'])
+        self.optimizer = optim.Adam([{'params':get_parameters(self.model, WHITE_LIST_FOR_OPTIM)},
+                                    {'params':self.model.classificationModel.output.parameters()}]
+                                    , lr=self.params['lr'])
         self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.params['scheduler_milestone'], gamma=self.params['scheduler_decay'], verbose=True)
 
         #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)

@@ -13,7 +13,7 @@ from retinanet.dataloader import Resizer, Augmenter, Normalizer
 # preprocessing
 from preprocessing.params import Params
 # train
-from train.il_trainer import IL_Trainer
+from train.il_trainer import IL_Trainer, get_parameters, WHITE_LIST_FOR_OPTIM
 from train.train import train_process
 # Global Setting
 
@@ -22,6 +22,9 @@ PRINT_INFO = True # whether print some information about continual learning on t
 DEFAULT_ALPHA = 0.25
 DEFAULT_GAMMA = 2.0
 DEFAULT_BATCH_SIZE = 5
+
+
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -49,8 +52,16 @@ def create_IL_trainer(params:Params):
         retinanet = create_retinanet(params['depth'], params.states[start_state]['num_knowing_class'])
     retinanet = retinanet.cuda()
     retinanet.training = True
-    optimizer = optim.Adam(retinanet.parameters(), lr=params['lr'])
     
+    
+
+    #optimizer = optim.Adam(retinanet.parameters(), lr=params['lr'])
+    
+    optimizer = optim.Adam([{'params':get_parameters(retinanet, WHITE_LIST_FOR_OPTIM)},
+                            {'params':retinanet.classificationModel.output.parameters()}]
+                            , lr=params['lr'])
+
+
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=params['scheduler_milestone'], gamma=params['scheduler_decay'], verbose=True)
     #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, verbose=True)
     loss_hist = collections.deque(maxlen=500)
@@ -64,11 +75,11 @@ def create_IL_trainer(params:Params):
     
     # IL_Trainer
     trainer = IL_Trainer(params,
-                            model=retinanet,
-                            optimizer=optimizer,
-                            scheduler=scheduler,
-                            dataset_train=dataset_train,
-                            loss_hist=loss_hist)
+                        model=retinanet,
+                        optimizer=optimizer,
+                        scheduler=scheduler,
+                        dataset_train=dataset_train,
+                        loss_hist=loss_hist)
     if start_epoch == 1 and start_state != 0:
         trainer.update_training_tools()
     return trainer
