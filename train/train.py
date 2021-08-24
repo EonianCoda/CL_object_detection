@@ -91,18 +91,7 @@ def cal_losses(il_trainer, il_loss, data, is_replay=False):
             losses = training_iteration(il_trainer,il_loss, data, is_replay)
         except Exception as e:
             print(e)
-            try:
-                fast_zero_grad(il_trainer.model)
-                batch_size = data['img'].shape[0]
-
-                sample = random.sample(range(0,batch_size), batch_size - 1)
-                sample.sort()
-                data['img'] =  data['img'][sample,...]
-                data['annot'] =  data['img'][sample,...]
-                losses = training_iteration(il_trainer,il_loss, data, is_replay)
-            except Exception as e:
-                print(e)
-                return None
+            return None
     else:
         losses = training_iteration(il_trainer,il_loss, data, is_replay)
 
