@@ -99,6 +99,9 @@ def cal_losses(il_trainer, il_loss, data, is_replay=False):
         return None
     return losses
 
+
+
+
 def train_process(il_trainer : IL_Trainer):
     # init training info
     start_state = il_trainer.params['start_state']
@@ -140,47 +143,90 @@ def train_process(il_trainer : IL_Trainer):
             not_warm_classifier = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
 
 
-            
+
+            num_training_iter = len(il_trainer.dataloader_train)
+
+            replay_exist =  (il_trainer.params['agem'] == False) and (il_trainer.dataset_replay != None)
+            if replay_exist:
+                num_replay_iter = len(il_trainer.dataloader_replay)
+                
+                if num_replay_iter <= num_training_iter:
+                    do_replay_ids = random.sample(range(num_training_iter), k=num_replay_iter)
+                    do_replay_num = [1 for _ in range(num_replay_iter)]
+                else:
+                    do_replay_ids = range(num_training_iter)
+                    do_replay_num = [1 for _ in range(num_replay_iter)]
+                    remaining_num = num_replay_iter - num_training_iter
+                    i = 0
+                    while remaining_num != 0:
+                        i = (i + 1) % num_training_iter
+                        do_replay_num[i] += 1
+                        remaining_num -= 1
+
+                replay_generator =  il_trainer.dataloader_replay.__iter__()
+                replay_iter_num = 0
+
+                print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
+                print('Iteration_num: ',len(il_trainer.dataloader_replay))
             # Training Dataset
-            il_trainer.optimizer.param_groups[0]['betas'] = (0.9, 0.999)
             for iter_num, data in enumerate(il_trainer.dataloader_train):
+                il_trainer.optimizer.param_groups[0]['betas'] = (0.9, 0.999)
                 start = time.time()
                 if il_trainer.params['agem']:
                     il_trainer.agem.cal_replay_grad(il_loss)
                     
                 
-                losses = cal_losses(il_trainer, il_loss, data)
-                if losses == None:
-                    continue
-                end = time.time()
-                print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
-
-                # Iteration Log
-                epoch_loss.append(losses['total_loss'])
-                avg_times.append(end - start)
-        
-                recorder.add_iter_loss(losses)
-
-
-            # Replay Dataset
-            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier:
-                print("Start Replay!")
-                print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
-                print('Iteration_num: ',len(il_trainer.dataloader_replay))
-
-                il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
-                for iter_num, data in enumerate(il_trainer.dataloader_replay):
-                    start = time.time()
-                    losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
-                    if losses == None:
-                        continue
+                losses = cal_losses(il_trainer, il_loss, data, is_replay=False)
+                if losses != None:
+                    #continue
                     end = time.time()
                     print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
 
-                # Iteration Log
-                epoch_loss.append(losses['total_loss'])
-                avg_times.append(end - start)
-                recorder.add_iter_loss(losses)
+                    # Iteration Log
+                    epoch_loss.append(losses['total_loss'])
+                    avg_times.append(end - start)
+            
+                    recorder.add_iter_loss(losses)
+
+                #Replay dataset
+                if replay_exist and not_warm_classifier and iter_num in do_replay_ids:
+                    for i in range(do_replay_num[replay_iter_num]):
+                        il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
+                        data = replay_generator.next()
+                        start = time.time()
+                        losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+                        if losses == None:
+                            continue
+                            
+                        end = time.time()
+                        print_iteration_info(il_trainer, losses, cur_epoch, replay_iter_num + i, end - start)
+                        # Iteration Log
+                        epoch_loss.append(losses['total_loss'])
+                        avg_times.append(end - start)
+                
+                        recorder.add_iter_loss(losses)
+                    replay_iter_num += 1
+
+
+            # Replay Dataset
+            # if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier:
+            #     print("Start Replay!")
+            #     print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
+            #     print('Iteration_num: ',len(il_trainer.dataloader_replay))
+
+            #     il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
+            #     for iter_num, data in enumerate(il_trainer.dataloader_replay):
+            #         start = time.time()
+            #         losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+            #         if losses == None:
+            #             continue
+            #         end = time.time()
+            #         print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
+
+            #     # Iteration Log
+            #     epoch_loss.append(losses['total_loss'])
+            #     avg_times.append(end - start)
+            #     recorder.add_iter_loss(losses)
 
             if il_trainer.params['bic'] and il_trainer.bic != None:
                 print("Start Bic!")
