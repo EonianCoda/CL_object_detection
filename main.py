@@ -69,7 +69,7 @@ def create_IL_trainer(params:Params):
     # Read checkpoint
     if start_state != 0 or start_epoch != 1:
         if start_epoch == 1:
-            params.load_model(start_state - 1,-1,retinanet, optimizer, scheduler, loss_hist)
+            params.load_model(start_state - 1,-1,retinanet) #, optimizer, scheduler, loss_hist)
         else:
             params.load_model(start_state,start_epoch - 1,retinanet, optimizer, scheduler, loss_hist)
     
