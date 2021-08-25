@@ -111,13 +111,31 @@ def correction_new_class(il_trainer, il_loss, data):
         if bool(loss == 0):
             return True
 
-        print("Enhance loss : {:.2f}", float(loss))
+        print("Enhance loss : {:.2f}".format(float(loss)))
         loss.backward()
         #     torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
 
         il_trainer.optimizer.step()
         del losses
         return False
+def change_beta(il_trainer : IL_Trainer, is_replay:bool):
+    if is_replay:
+        beta = il_trainer.params['beta_on_replay']
+        beta_tuple = (beta, 0.999)
+
+        if il_trainer.params['beta_on_where'] == "all":
+            il_trainer.optimizer.param_groups[0]['betas'] = beta_tuple
+            il_trainer.optimizer.param_groups[1]['betas'] = beta_tuple
+        elif il_trainer.params['beta_on_where'] == "output":
+            il_trainer.optimizer.param_groups[1]['betas'] = beta_tuple
+        elif il_trainer.params['beta_on_where'] == "feature":
+            il_trainer.optimizer.param_groups[0]['betas'] = beta_tuple
+        else:
+            raise ValueError("Unknow parameter {} in beta on where".format(il_trainer.params['beta_on_where']))
+
+    else:
+        il_trainer.optimizer.param_groups[0]['betas'] = (0.9, 0.999)
+        il_trainer.optimizer.param_groups[1]['betas'] = (0.9, 0.999)
 
 def train_process(il_trainer : IL_Trainer):
     # init training info
@@ -164,7 +182,7 @@ def train_process(il_trainer : IL_Trainer):
             num_training_iter = len(il_trainer.dataloader_train)
 
             replay_exist =  (il_trainer.params['agem'] == False) and (il_trainer.dataset_replay != None)
-            if replay_exist:
+            if replay_exist and il_trainer.params['mix_data']:
                 num_replay_iter = len(il_trainer.dataloader_replay)
                 
                 if num_replay_iter <= num_training_iter:
@@ -187,7 +205,9 @@ def train_process(il_trainer : IL_Trainer):
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
-                il_trainer.optimizer.param_groups[0]['betas'] = (0.9, 0.999)
+                change_beta(il_trainer, is_replay=False)
+
+
                 start = time.time()
                 if il_trainer.params['agem']:
                     il_trainer.agem.cal_replay_grad(il_loss)
@@ -206,9 +226,9 @@ def train_process(il_trainer : IL_Trainer):
                     recorder.add_iter_loss(losses)
 
                 #Replay dataset
-                if replay_exist and not_warm_classifier and iter_num in do_replay_ids:
+                if replay_exist and not_warm_classifier and iter_num in do_replay_ids and il_trainer.params['mix_data']:
+                    change_beta(il_trainer, is_replay=True)
                     for i in range(do_replay_num[replay_iter_num]):
-                        il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
                         data = replay_generator.next()
                         start = time.time()
                         losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
@@ -226,24 +246,24 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            # if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier:
-            #     print("Start Replay!")
-            #     print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
-            #     print('Iteration_num: ',len(il_trainer.dataloader_replay))
+            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier and not il_trainer.params['mix_data']:
+                print("Start Replay!")
+                print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
+                print('Iteration_num: ',len(il_trainer.dataloader_replay))
 
-            #     il_trainer.optimizer.param_groups[0]['betas'] = (il_trainer.params['beta_on_replay'], 0.999)
-            #     for iter_num, data in enumerate(il_trainer.dataloader_replay):
-            #         start = time.time()
-            #         losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
-            #         if losses == None:
-            #             continue
-            #         end = time.time()
-            #         print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start)
+                change_beta(il_trainer, is_replay=True)
+                for iter_num, data in enumerate(il_trainer.dataloader_replay):
+                    start = time.time()
+                    losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+                    if losses == None:
+                        continue
+                    end = time.time()
+                    print_iteration_info(il_trainer, losses, cur_epoch, iter_num, end - start, is_replay=True)
 
-            #     # Iteration Log
-            #     epoch_loss.append(losses['total_loss'])
-            #     avg_times.append(end - start)
-            #     recorder.add_iter_loss(losses)
+                # Iteration Log
+                epoch_loss.append(losses['total_loss'])
+                avg_times.append(end - start)
+                recorder.add_iter_loss(losses)
 
             if il_trainer.params['bic'] and il_trainer.bic != None:
                 print("Start Bic!")

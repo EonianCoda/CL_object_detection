@@ -36,7 +36,7 @@ def get_parameters(model, white_list=[]):
     
     for name, p in model.named_parameters():
         if not check(name):
-            print(name)
+            # print(name)
             continue
         else:
             yield p
