@@ -47,7 +47,7 @@ class ProtoTypeFocalLoss(nn.Module):
         anchor_ctr_y   = anchor[:, 1] + 0.5 * anchor_heights
         
         pos_indices = []
-
+        pos_targets = []
         for j in range(batch_size):
 
             classification = classifications[j, :, :] # shape = (num_anchors, class_num)
@@ -77,7 +77,7 @@ class ProtoTypeFocalLoss(nn.Module):
             
 
             pos_indices.append(torch.ge(IoU_max, 0.5).view(-1, num_anchors).unsqueeze(dim=0))
-            # target = bbox_annotation[IoU_argmax, 4].view(-1, num_anchors)
+            pos_targets.append(bbox_annotation[IoU_argmax, 4].view(-1, num_anchors))
 
 
             # compute the loss for classification
@@ -207,18 +207,35 @@ class ProtoTypeFocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-        # cal prototype_loss
-        pos_indices = torch.cat(pos_indices)
+         # cal prototype_loss
+        pos_indices = torch.cat(pos_indices) #shape = (batch_size, all_anchor_num / 9, 9)
+        pos_targets = torch.cat(pos_targets)
+        
         mask = pos_indices.any(dim=2)
-        cls_features = cls_features[mask].unsqueeze(dim=1)
-        distance = _distance(cls_features, prototype_features)
-        prototype_loss = torch.clamp(600 - distance, min=0)
+        pos_indices = pos_indices[mask,:]
+        pos_targets = pos_targets[mask,:]
 
+        cls_features = cls_features[mask] # shape = (num_pos_anchor, channels)   
+        
+        num_new_classes = len(params.states[cur_state]['new_class']['id'])
+        count = torch.zeros(num_new_classes, num_anchors, 1).cuda()
+        cur_prototype_features = torch.zeros(num_new_classes, num_anchors, cls_features.shape[1]).cuda()
+        pos_targets -= past_class_num
+        
+        # for class_id in range(past_class_num):
+        for i in range(cls_features.shape[0]):
+            count[pos_targets[i][pos_indices[i]], pos_indices[i],:] += 1
+            cur_prototype_features[pos_targets[i][pos_indices[i]], pos_indices[i],:] += cls_features[i]
 
-        if (prototype_loss != 0).sum() == 0:
-            prototype_loss = torch.tensor(0).float().cuda()
-        else:
-            prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
+        cur_prototype_features /= torch.clamp(count,min=1)
+        cur_prototype_features = torch.mean(cur_prototype_features, dim=1).unsqueeze(dim=1)
+        distance = _distance(cur_prototype_features.view(-1, cls_features.shape[1]), prototype_features)
+        prototype_loss = torch.clamp(600 - distance, min=0).mean()
+
+        # if (prototype_loss == 0).sum() == 0:
+        #     prototype_loss = torch.tensor(0).float().cuda()
+        # else:
+        #     prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
 
         result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True),

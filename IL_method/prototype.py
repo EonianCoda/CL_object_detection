@@ -195,7 +195,7 @@ class ProtoTyper(object):
             img_ids.extend(g)
         for i in range(len(img_ids)):
             img_ids[i] = dataset.image_ids[img_ids[i]]
-
+        img_ids = torch.tensor(img_ids)
 
         sample_file = {}
         for class_id in range(num_classes):
@@ -204,15 +204,16 @@ class ProtoTyper(object):
             for anchor_id in range(self.num_anchors):
                 cur_distance = distance[:,class_id, anchor_id]
                 nonzero_ids = cur_distance.nonzero().squeeze()
-                sorted_ids = nonzero_ids.gather(0, cur_distance[nonzero_ids].argsort())
-                for i in range(len(sorted_ids)):
-                    sorted_ids[i] = img_ids[sorted_ids[i]]
+                sorted_ids = cur_distance[nonzero_ids].argsort() # nonzero_ids.gather(0, cur_distance[nonzero_ids].argsort())
+                sorted_ids = img_ids[sorted_ids]
+                
+                # for i in range(len(sorted_ids)):
+                #     sorted_ids[i] = img_ids[sorted_ids[i]]
 
                 sample_file[class_id][anchor_id] = sorted_ids.tolist()
 
         with open(os.path.join(path, file_name),'wb') as f:
             pickle.dump((sample_file, count), f)
-
 
     def __del__(self):
         if self.prototype_features != None:
