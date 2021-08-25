@@ -459,7 +459,7 @@ class IL_Loss():
             # if self.il_trainer.protoTyper.prototype_features == None:
             #     self.il_trainer.protoTyper.init_prototype(self.il_trainer.cur_state - 1)
             _ , _ , feature_channels = self.il_trainer.protoTyper.prototype_features.shape    
-            self.il_trainer.protoTyper.prototype_features = self.il_trainer.protoTyper.prototype_features.unsqueeze(dim=0).view(-1, feature_channels).cuda()
+            self.il_trainer.protoTyper.prototype_features = torch.mean(self.il_trainer.protoTyper.prototype_features,dim=1).unsqueeze(dim=0).cuda()
 
         # calculate past classifer'norm 
         if self.params['classifier_loss']:
