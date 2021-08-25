@@ -580,7 +580,7 @@ class IL_Loss():
                 result['enhance_loss'] = enhance_loss
         # incremental state
         else:
-            if self.il_trainer.params['prototype_loss']:
+            if self.il_trainer.params['prototype_loss'] and self.il_trainer.cur_epoch > 5:
                 classification, regression, features, anchors, cls_features = self.il_trainer.model.forward_prototype(img_batch, 
                                                                                                         return_feat=True, 
                                                                                                         return_anchor=True, 

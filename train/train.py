@@ -166,6 +166,7 @@ def train_process(il_trainer : IL_Trainer):
 
         
         for cur_epoch in range(start_epoch, end_epoch + 1):
+            il_trainer.cur_epoch = cur_epoch
             # Some Log 
             avg_times = []
             epoch_loss = []

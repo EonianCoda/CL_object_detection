@@ -44,7 +44,9 @@ def get_parameters(model, white_list=[]):
 class IL_Trainer(object):
     def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset, loss_hist=None):
         self.params = params
- 
+        self.cur_epoch = 0 
+
+        
         # training setting
         self.model = model
         self.optimizer = optimizer
@@ -66,6 +68,7 @@ class IL_Trainer(object):
         self.mas = None
         self.agem = None
         self.bic = None
+        
 
         # when training, use above attribute
         self.cur_warm_stage = -1
