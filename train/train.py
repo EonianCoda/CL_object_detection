@@ -226,7 +226,7 @@ def train_process(il_trainer : IL_Trainer):
                     recorder.add_iter_loss(losses)
 
                 #Replay dataset
-                if replay_exist and not_warm_classifier and iter_num in do_replay_ids and il_trainer.params['mix_data']:
+                if replay_exist and not_warm_classifier and il_trainer.params['mix_data'] and iter_num in do_replay_ids:
                     change_beta(il_trainer, is_replay=True)
                     for i in range(do_replay_num[replay_iter_num]):
                         data = replay_generator.next()
