@@ -77,7 +77,8 @@ class ProtoTypeFocalLoss(nn.Module):
             
 
             pos_indices.append(torch.ge(IoU_max, 0.5).view(-1, num_anchors).unsqueeze(dim=0))
-            pos_targets.append(bbox_annotation[IoU_argmax, 4].view(-1, num_anchors))
+            target = bbox_annotation[IoU_argmax, 4].view(-1, num_anchors)
+            pos_targets.append(target.long().unsqueeze(dim=0))
 
 
             # compute the loss for classification
