@@ -596,7 +596,7 @@ class IL_Loss():
                 classification = self.il_trainer.bic.bic_correction(classification)
            
             # Compute focal loss
-            if self.il_trainer.params['prototype_loss']:
+            if self.il_trainer.params['prototype_loss'] and self.il_trainer.cur_epoch > 5:
                 losses = self.prototypefocal_loss(self.classifier_act(classification), 
                                                     regression, anchors, 
                                                     annotations,
