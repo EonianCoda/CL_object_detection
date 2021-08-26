@@ -231,7 +231,7 @@ class ProtoTypeFocalLoss(nn.Module):
         cur_prototype_features /= torch.clamp(count,min=1)
         cur_prototype_features = torch.mean(cur_prototype_features, dim=1).unsqueeze(dim=1)
         distance = _distance(cur_prototype_features.view(-1, cls_features.shape[1]), prototype_features)
-        prototype_loss = torch.clamp(600 - distance, min=0).mean()
+        prototype_loss = torch.clamp(600 - distance, min=0).mean() * 0.1
 
         # if (prototype_loss == 0).sum() == 0:
         #     prototype_loss = torch.tensor(0).float().cuda()
@@ -605,26 +605,22 @@ class IL_Loss():
                                                     self.params, 
                                                     cls_features, 
                                                     self.il_trainer.protoTyper.prototype_features)
-
-                result['cls_loss'] = losses['cls_loss'].mean()
-                result['reg_loss'] = losses['reg_loss'].mean()
                 result['prototype_loss'] = losses['prototype_loss']
-                bg_masks = losses['bg_masks']
             else:
                 losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
-                result['cls_loss'] = losses['cls_loss'].mean()
-                result['reg_loss'] = losses['reg_loss'].mean()
-                bg_masks = losses['bg_masks']
+            
+            
+            result['cls_loss'] = losses['cls_loss'].mean()
+            result['reg_loss'] = losses['reg_loss'].mean()
 
             # Whether ignore ground truth
             if self.params['enhance_on_new']:
                 result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
 
-            
-
-            
             # Compute distillation loss
             if self.params['distill']:
+                bg_masks = losses['bg_masks']
+
                 if self.params['classifier_loss']:
                     # divide by batch_size
                     result['sim_loss'] = self.cal_classifier_loss()
