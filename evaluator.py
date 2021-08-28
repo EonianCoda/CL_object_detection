@@ -22,7 +22,7 @@ from retinanet.model import create_retinanet
 from preprocessing.params import Params, create_dir
 
 DEFAULT_RESULT = {'precision':[], 'recall':[],'pred_num':0,'real_num':0}
-
+MAX_SPLIT = 10
 
 class Evaluator(Params):
     def __init__(self, parser:argparse):
@@ -407,12 +407,20 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         evaluator.do_evaluation(epoch)
 
 
-
+    quota = [0 for epoch in epochs]
+    if MAX_SPLIT < len(epochs):
+        raise ValueError("The number of epoch is less than maxium splits {}".format(MAX_SPLIT))
+    for i in range(MAX_SPLIT):
+        i = i % len(epochs)
+        quota[i] += 1
+    
+    
     with tqdm(total=len(evaluator.dataset) * len(epochs),position=0, leave=True) as pbar:
         with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
             if len(epochs) > 1:
-                for epoch in epochs:
-                    ex.submit(single_evaluation, epoch, pbar)
+                for i, epoch in enumerate(epochs):
+                    multi_split_evaluation(epoch, pbar, split=quota[i])
+                    # ex.submit(single_evaluation, epoch, pbar)
             else:
                 multi_split_evaluation(epochs[0], pbar, split=5)
 
