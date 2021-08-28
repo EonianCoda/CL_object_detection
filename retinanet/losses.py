@@ -238,7 +238,7 @@ class ProtoTypeFocalLoss(nn.Module):
         # else:
         #     prototype_loss = torch.mean(prototype_loss[prototype_loss != 0])
 
-        result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
+        result = {'cls_loss': torch.stack(classification_losses),
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True),
                   'prototype_loss': prototype_loss}
         
@@ -431,7 +431,9 @@ class FocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-        result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
+        # result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
+        #           'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
+        result = {'cls_loss': torch.stack(classification_losses),
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
         
         if incremental_state:
@@ -562,7 +564,17 @@ class IL_Loss():
                                                                     return_anchor=True, 
                                                                     enable_act=True)
             losses = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
-            result['cls_loss'] = losses['cls_loss'].mean()
+
+            if self.il_trainer.params['clip_loss'] and is_replay:
+                mask = losses['cls_loss'] >= self.il_trainer.params['clip_replay_cls_loss']
+                if mask.sum() == 0:
+                    cls_loss = torch.tensor(0).float().cuda()
+                else:
+                    cls_loss = losses['cls_loss'][mask].mean()
+                result['cls_loss'] = cls_loss
+            else:
+                result['cls_loss'] = losses['cls_loss'].mean()
+
             result['reg_loss'] = losses['reg_loss'].mean()
 
             # Enhance error on Replay dataset
@@ -609,8 +621,15 @@ class IL_Loss():
             else:
                 losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
             
-            
-            result['cls_loss'] = losses['cls_loss'].mean()
+            if self.params['clip_loss']:
+                mask = losses['cls_loss'] >= self.il_trainer.params['clip_cls_loss']
+                if mask.sum() == 0:
+                    cls_loss = torch.tensor(0).float().cuda()
+                else:
+                    cls_loss = losses['cls_loss'][mask].mean()
+                result['cls_loss'] = cls_loss
+            else:
+                result['cls_loss'] = losses['cls_loss'].mean()
             result['reg_loss'] = losses['reg_loss'].mean()
 
             # Whether ignore ground truth

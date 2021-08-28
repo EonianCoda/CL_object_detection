@@ -151,7 +151,13 @@ def get_parser(args=None):
     parser.add_argument('--no_clip', type=str2bool, default=False)
     parser.add_argument('--beta_on_replay', type=float, default=0.9)
     parser.add_argument('--beta_on_where', default="all")
-    
+
+
+
+    parser.add_argument('--clip_loss', type=str2bool, default=True)
+    parser.add_argument('--clip_cls_loss', type=float, default=0.03)
+    parser.add_argument('--clip_replay_cls_loss', type=float, default=0.003)
+
     parser.add_argument('--prototype_loss', type=str2bool, default=False)
     parser.add_argument('--final_correction', type=str2bool, default=False)
     parser.add_argument('--mix_data', type=str2bool, default=False)

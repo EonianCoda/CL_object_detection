@@ -407,7 +407,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         evaluator.do_evaluation(epoch)
 
 
-    quota = [0 for epoch in epochs]
+    quota = [0 for _ in epochs]
     if MAX_SPLIT < len(epochs):
         raise ValueError("The number of epoch is less than maxium splits {}".format(MAX_SPLIT))
     for i in range(MAX_SPLIT):
@@ -419,7 +419,7 @@ def multi_evaluation(evaluator:Evaluator, epochs:list):
         with ThreadPoolExecutor(max_workers=len(epochs)) as ex:
             if len(epochs) > 1:
                 for i, epoch in enumerate(epochs):
-                    multi_split_evaluation(epoch, pbar, split=quota[i])
+                    ex.submit(multi_split_evaluation, epoch, pbar, split=quota[i])
                     # ex.submit(single_evaluation, epoch, pbar)
             else:
                 multi_split_evaluation(epochs[0], pbar, split=5)
