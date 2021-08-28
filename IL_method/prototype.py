@@ -204,7 +204,7 @@ class ProtoTyper(object):
             for anchor_id in range(self.num_anchors):
                 cur_distance = distance[:,class_id, anchor_id]
                 nonzero_ids = cur_distance.nonzero().squeeze()
-                sorted_ids = cur_distance[nonzero_ids].argsort() # nonzero_ids.gather(0, cur_distance[nonzero_ids].argsort())
+                sorted_ids = nonzero_ids[cur_distance[nonzero_ids].argsort()] # nonzero_ids.gather(0, cur_distance[nonzero_ids].argsort())
                 sorted_ids = img_ids[sorted_ids]
                 
                 # for i in range(len(sorted_ids)):

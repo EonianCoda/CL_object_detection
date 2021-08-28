@@ -82,6 +82,7 @@ def create_IL_trainer(params:Params):
                         loss_hist=loss_hist)
     if start_epoch == 1 and start_state != 0:
         trainer.update_training_tools()
+
     return trainer
 
 def get_parser(args=None):

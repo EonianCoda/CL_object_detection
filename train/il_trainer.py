@@ -123,11 +123,10 @@ class IL_Trainer(object):
         if self.params['prototype_loss'] or self.params['sample_method'] == 'prototype_herd':
             self.protoTyper = ProtoTyper(self)
             if self.params['sample_method'] == 'prototype_herd':
-                path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-                file_name = 'classification_herd_samples.pickle'
-                if not os.path.isfile(os.path.join(path, file_name)):
-                    self.protoTyper = ProtoTyper(self)
-                    self.protoTyper.cal_examplar(self.cur_state - 1)
+                # path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
+                # file_name = 'classification_herd_samples.pickle'
+                # if not os.path.isfile(os.path.join(path, file_name)):
+                self.protoTyper.cal_examplar(self.cur_state - 1)
             if not self.params['prototype_loss']:
                 del self.protoTyper
             elif self.protoTyper.prototype_features == None:
