@@ -139,13 +139,17 @@ def main(args=None):
                     cls_loss, reg_loss = model.cal_simple_focal_loss(data['img'].float().cuda(), 
                                                 data['annot'].cuda(),
                                                 params)
+
+                    # if cls_loss < 0.005:
+                    #     continue
+                    
                     loss = cls_loss + reg_loss
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
                     optimizer.step()
                     loss_hist.append(float(loss))
                     end = time.time()
-                    print("Epoch: {} | Iter: {} | Cls_loss: {:.3f} | Reg_loss: {:.3f} | Total_loss: {:.3f} | Running_loss: {:.3f} | Time: {:.2f}".format(epoch, 
+                    print("Epoch: {} | Iter: {} | Cls_loss: {:.3f} | Reg_loss: {:.3f} | Total_loss: {:.3f} | Running_loss: {:.3f} | Time: {:.2f}s".format(epoch, 
                                                                                                                                                     iter_num, 
                                                                                                                                                     float(cls_loss), 
                                                                                                                                                     float(reg_loss), 
