@@ -51,7 +51,7 @@ class Labeler():
 
             # get the anchor which its scores are large than thresold 
             if len(preidction_boxes) != 0:
-                mask = (prediction_scores > self.thresold)
+                mask = (prediction_scores > self.score_thresold)
                 preidction_boxes = preidction_boxes[mask] / scale
                 prediction_scores = prediction_scores[mask]
                 prediction_targets = prediction_targets[mask]
