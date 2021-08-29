@@ -99,7 +99,7 @@ def get_parser(args=None):
     parser.add_argument('--gamma', type=float, default=DEFAULT_GAMMA)
     # Other params
     parser.add_argument('--record', help='whether record training with tensorboard default=True', type=str2bool, default=True)  
-    parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=False)
+    parser.add_argument('--print_il_info', help='whether debug in Train process, default = False', type=str2bool, default=True)
     parser.add_argument('--debug', help='whether debug in Train process, default = False', type=str2bool, default=False)
     parser.add_argument('--val', help='whether do validation after training', type=str2bool, default=False)  
 

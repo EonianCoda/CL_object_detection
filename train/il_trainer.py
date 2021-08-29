@@ -91,7 +91,7 @@ class IL_Trainer(object):
         if self.params['persuado_label'] == False:
             return
         labler = Labeler(self.model, self.params)
-        persuado_label = labler.get_persuado_label()
+        persuado_label = labler.get_persuado_label(self.cur_state)
         self.dataset_train.persuado_label = persuado_label
         self.update_dataloader()
 
