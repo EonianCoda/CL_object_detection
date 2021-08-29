@@ -21,7 +21,7 @@ from preprocessing.debug import debug_print, DEBUG_FLAG
 class IL_dataset(Dataset):
     """incremental learning dataset."""
 
-    def __init__(self, params,transform=None, start_state=0, use_data_ratio = 1, use_all_class=False):
+    def __init__(self, params,transform=None, start_state=0, use_data_ratio = 1, use_all_class=False, persuado_label=dict()):
         """
         Args:
             train_params: train_params, which manage the training params
@@ -30,7 +30,7 @@ class IL_dataset(Dataset):
             start_state: interger, the start state index
             use_data_ratio: use data ratio, default = 1, which means using all data
         """
-    
+
         self.data_split = params['data_split'] # must be 'train', 'val', 'trainval' or 'test' 
         self.image_path = os.path.join(params['data_path'], 'images')
 
@@ -51,6 +51,7 @@ class IL_dataset(Dataset):
 
         self.init_classes()
         self.update_imgIds()  #get this state's data
+        self.persuado_label = persuado_label
         
     def update_imgIds(self):
         imgIds = self.coco.get_imgs_by_cats(self.seen_class_id)
@@ -123,6 +124,17 @@ class IL_dataset(Dataset):
             annotation[0, :4] = ann['bbox']
             annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
             annotations       = np.append(annotations, annotation, axis=0)
+
+        #persuado label
+        if len(self.persuado_label) != 0:
+            img_id = self.image_ids[image_index]
+            for ann in self.persuado_label[img_id]:
+                annotation        = np.zeros((1, 5))
+                annotation[0, :4] = ann['bbox']
+                annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
+                annotations       = np.append(annotations, annotation, axis=0)
+
+
 
         # transform from [x, y, w, h] to [x1, y1, x2, y2]
         annotations[:, 2] = annotations[:, 0] + annotations[:, 2]

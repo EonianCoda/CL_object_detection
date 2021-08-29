@@ -21,7 +21,7 @@ class Labeler():
         self.score_thresold = score_thresold
         self.IOU_thresold = IOU_thresold
 
-    def label_data(self, state:int):
+    def get_persuado_label(self, state:int):
         dataset = IL_dataset(self.params,
                             transform=transforms.Compose([Normalizer(), Resizer()]),
                             start_state=state)
@@ -91,7 +91,7 @@ class Labeler():
             persuado_annots[img_id] = results
 
         # store result
-        with open(os.path.join(path, file_name), 'rb') as f:
+        with open(os.path.join(path, file_name), 'wb') as f:
             pickle.dump(persuado_annots, f)
 
         return persuado_annots

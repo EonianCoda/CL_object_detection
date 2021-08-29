@@ -151,6 +151,7 @@ def get_parser(args=None):
     parser.add_argument('--no_clip', type=str2bool, default=False)
     parser.add_argument('--beta_on_replay', type=float, default=0.9)
     parser.add_argument('--beta_on_where', default="all")
+    parser.add_argument('--persuado_label', type=str2bool, default=False)
 
 
 
@@ -188,14 +189,7 @@ def to_val_parser(parser:argparse):
 
 
     parser['state'] = parser['start_state'] 
-
-    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)]
-    
-#     if parser['end_epoch'] > 50:
-#         parser['epoch'] = [epoch for epoch in range(60, 30 - 1, -10)]
-#     else:
-#         parser['epoch'] = [epoch for epoch in range(50, 20 - 1, -10)]
-    
+    parser['epoch'] = [epoch for epoch in range(parser['end_epoch'], 30 - 1, -10)] 
     parser['threshold'] = 0.05
     parser['just_val'] = False
     parser['output_csv'] = True

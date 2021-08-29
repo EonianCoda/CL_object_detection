@@ -1,5 +1,6 @@
 # built-in
 
+from IL_method.persuado_label import Labeler
 from IL_method.prototype import ProtoTyper
 from IL_method.bic import Bic_Trainer
 import collections
@@ -83,6 +84,16 @@ class IL_Trainer(object):
             self.init_agem()
             self.update_prev_model()
             self.update_mas()
+
+            self.add_persuado_label()
+
+    def add_persuado_label(self):
+        if self.params['persuado_label'] == False:
+            return
+        labler = Labeler(self.model, self.params)
+        persuado_label = labler.get_persuado_label()
+        self.dataset_train.persuado_label = persuado_label
+        self.update_dataloader()
 
     def init_bic(self):
         if not self.params['bic']:
