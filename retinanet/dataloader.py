@@ -84,7 +84,7 @@ class IL_dataset(Dataset):
         img = self.load_image(idx)
         annot, num_persuado_labels = self.load_annotations(idx)
 
-        sample = {'img': img, 'annot': annot, 'num_persuadp_labels':num_persuado_labels}
+        sample = {'img': img, 'annot': annot, 'num_persuado_labels':num_persuado_labels}
         if self.transform:
             sample = self.transform(sample)
         
