@@ -1,5 +1,6 @@
 # import collections
 
+from _typeshed import Self
 import pickle
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
@@ -251,8 +252,24 @@ class Params(object):
         debug_print('Load checkpoint at state{} Epoch{}'.format(state, epoch)) 
         return torch.load(self.get_ckp_path(state, epoch))
        
+    def get_model_by_name(self, state:int, name:str):
+        """get model by specific name
+            Args:
+                state: the state for model
+                name: the name for model
+        """
+        file_path = os.path.join(self['ckp_path'], 'state{}'.format(state), name)
+        if os.path.isfile(file_path):
+            raise ValueError("CheckPoint {} doesn't exist".format(name))
+
+        model = create_retinanet(self['depth'], self.states[state]['num_knowing_class'])
+        ckp = torch.load(file_path)
+        model.load_state_dict(ckp['model_state_dict'])
+        del ckp
+        return model
+
     def get_model(self, state:int,  epoch=-1):
-        """read checkpoint
+        """get model
             Args:
                 state: state index
                 epoch: prefered epochs, -1 mean auto search the max epoch in this state , None mean not readcheckpoint default = None 

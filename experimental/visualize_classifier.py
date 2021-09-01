@@ -1,3 +1,4 @@
+from os import stat
 from main import get_parser, Params
 import torch
 import numpy as np
@@ -42,6 +43,20 @@ class Visualizer(object):
     def __init__(self, params):
         self.params = params
         self.model = None
+
+    def set_model_by_name(self, state:int, name:str):
+        if self.model:
+            del self.model
+        self.model = self.params.get_model_by_name(state, name)
+
+        self.state = state
+
+        self.classifier = get_classifier_weights(self.model)
+        self.num_new_class = self.params.states[self.state]['num_new_class']
+        if self.state != 0:
+            self.num_old_class = self.params.states[self.state]['num_past_class']
+        else:
+            self.num_old_class = 0
 
     def set_model(self, state:int, epoch:int):
         if self.model:
