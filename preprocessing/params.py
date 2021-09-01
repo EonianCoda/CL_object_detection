@@ -257,7 +257,7 @@ class Params(object):
                 name: the name for model
         """
         file_path = os.path.join(self['ckp_path'], 'state{}'.format(state), name)
-        if os.path.isfile(file_path):
+        if not os.path.isfile(file_path):
             raise ValueError("CheckPoint {} doesn't exist".format(name))
 
         model = create_retinanet(self['depth'], self.states[state]['num_knowing_class'])
