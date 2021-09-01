@@ -1,6 +1,4 @@
 # import collections
-
-from _typeshed import Self
 import pickle
 from preprocessing.debug import debug_print, DEBUG_FLAG
 from preprocessing.enhance_coco import Enhance_COCO
