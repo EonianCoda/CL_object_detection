@@ -82,8 +82,9 @@ class IL_dataset(Dataset):
 
     def __getitem__(self, idx):
         img = self.load_image(idx)
-        annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
+        annot, num_persuado_labels = self.load_annotations(idx)
+
+        sample = {'img': img, 'annot': annot, 'num_persuadp_labels':num_persuado_labels}
         if self.transform:
             sample = self.transform(sample)
         
@@ -140,7 +141,10 @@ class IL_dataset(Dataset):
         annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
         annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
 
-        return annotations
+        if len(self.persuado_label) != 0:
+            return annotations, len(self.persuado_label[img_id])
+        else:
+            return annotations, -1
 
     def coco_label_to_label(self, coco_label):
         return self.coco_labels_inverse[coco_label]
@@ -295,7 +299,9 @@ def collater(data):
     imgs = [s['img'] for s in data]
     annots = [s['annot'] for s in data]
     scales = [s['scale'] for s in data]
-        
+
+    num_persuado_labels = [s['num_persuado_labels'] for s in data]
+
     widths = [int(s.shape[0]) for s in imgs]
     heights = [int(s.shape[1]) for s in imgs]
     batch_size = len(imgs)
@@ -325,7 +331,7 @@ def collater(data):
 
     padded_imgs = padded_imgs.permute(0, 3, 1, 2)
 
-    return {'img': padded_imgs, 'annot': annot_padded, 'scale': scales}
+    return {'img': padded_imgs, 'annot': annot_padded, 'scale': scales, 'num_persuado_labels': num_persuado_labels}
 
 class Resizer(object):
     """Convert ndarrays in sample to Tensors."""
@@ -359,7 +365,7 @@ class Resizer(object):
 
         annots[:, :4] *= scale
 
-        return {'img': torch.from_numpy(new_image), 'annot': torch.from_numpy(annots), 'scale': scale}
+        return {'img': torch.from_numpy(new_image), 'annot': torch.from_numpy(annots), 'scale': scale, 'num_persuado_labels':sample['num_persuado_labels']}
 
 class Augmenter(object):
     """Convert ndarrays in sample to Tensors."""
@@ -380,7 +386,7 @@ class Augmenter(object):
             annots[:, 0] = cols - x2
             annots[:, 2] = cols - x_tmp
 
-            sample = {'img': image, 'annot': annots}
+            sample = {'img': image, 'annot': annots, 'num_persuado_labels': sample['num_persuado_labels']}
 
         return sample
 
@@ -395,7 +401,7 @@ class Normalizer(object):
 
         image, annots = sample['img'], sample['annot']
 
-        return {'img':((image.astype(np.float32)-self.mean)/self.std), 'annot': annots}
+        return {'img':((image.astype(np.float32)-self.mean)/self.std), 'annot': annots, 'num_persuado_labels':sample['num_persuado_labels']}
 
 class UnNormalizer(object):
     def __init__(self, mean=None, std=None):
