@@ -153,8 +153,6 @@ def get_parser(args=None):
     parser.add_argument('--beta_on_where', default="all")
     parser.add_argument('--persuado_label', type=str2bool, default=False)
 
-
-
     parser.add_argument('--clip_loss', type=str2bool, default=True)
     parser.add_argument('--clip_cls_loss', type=float, default=0.03)
     parser.add_argument('--clip_replay_cls_loss', type=float, default=0.003)
@@ -162,7 +160,7 @@ def get_parser(args=None):
     parser.add_argument('--prototype_loss', type=str2bool, default=False)
     parser.add_argument('--final_correction', type=str2bool, default=False)
     parser.add_argument('--mix_data', type=str2bool, default=False)
-    
+    parser.add_argument('--mix_data_start', type=int, default=0)
 
     # Record
     parser.add_argument('--output_examplar', help='whether output the .png for examplars, default = True',  type=str2bool, default=True)

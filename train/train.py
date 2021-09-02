@@ -177,8 +177,6 @@ def train_process(il_trainer : IL_Trainer):
 
             not_warm_classifier = not (il_trainer.cur_warm_stage != -1 and il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
 
-
-
             num_training_iter = len(il_trainer.dataloader_train)
 
             replay_exist =  (il_trainer.params['agem'] == False) and (il_trainer.dataset_replay != None)
@@ -226,7 +224,8 @@ def train_process(il_trainer : IL_Trainer):
                     recorder.add_iter_loss(losses)
 
                 #Replay dataset
-                if replay_exist and not_warm_classifier and il_trainer.params['mix_data'] and iter_num in do_replay_ids:
+                
+                if replay_exist and not_warm_classifier and il_trainer.params['mix_data'] and cur_epoch > il_trainer.params['mix_data_start']  and iter_num in do_replay_ids:
                     change_beta(il_trainer, is_replay=True)
                     for i in range(do_replay_num[replay_iter_num]):
                         data = replay_generator.next()
@@ -246,7 +245,7 @@ def train_process(il_trainer : IL_Trainer):
 
 
             # Replay Dataset
-            if il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier and not il_trainer.params['mix_data']:
+            if (il_trainer.params['agem'] == False and il_trainer.dataset_replay != None and not_warm_classifier) and (not il_trainer.params['mix_data'] or cur_epoch < il_trainer.params['mix_data_start']):
                 print("Start Replay!")
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
