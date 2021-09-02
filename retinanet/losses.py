@@ -31,8 +31,8 @@ class ProtoTypeFocalLoss(nn.Module):
         # whether the state > 0, mean it is incremental state
         incremental_state = (cur_state > 0)
         if incremental_state:
-            if params['enhance_on_new']:
-                enhance_loss_on_new = None
+            # if params['enhance_on_new']:
+            #     enhance_loss_on_new = None
             if params['distill']:
                 bg_masks = []
 
@@ -152,15 +152,15 @@ class ProtoTypeFocalLoss(nn.Module):
             classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
 
 
-            if incremental_state and params['enhance_on_new']:
-                new_class_bg = classification[bg_mask, past_class_num:]
-                # false negative mask
-                fn_mask = new_class_bg > 0.05
-                if (fn_mask > 0.05).sum() != 0:
-                    if enhance_loss_on_new == None:
-                        enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
-                    else:
-                        enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+            # if incremental_state and params['enhance_on_new']:
+            #     new_class_bg = classification[bg_mask, past_class_num:]
+            #     # false negative mask
+            #     fn_mask = new_class_bg > 0.05
+            #     if (fn_mask > 0.05).sum() != 0:
+            #         if enhance_loss_on_new == None:
+            #             enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+            #         else:
+            #             enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
 
             # compute the loss for regression
             if positive_indices.sum() > 0:
@@ -243,10 +243,10 @@ class ProtoTypeFocalLoss(nn.Module):
                   'prototype_loss': prototype_loss}
         
         if incremental_state:
-            if params['enhance_on_new']:
-                if enhance_loss_on_new != None:
-                    enhance_loss_on_new /= classifications.shape[0]
-                result['enhance_loss_on_new'] = enhance_loss_on_new
+            # if params['enhance_on_new']:
+            #     if enhance_loss_on_new != None:
+            #         enhance_loss_on_new /= classifications.shape[0]
+            #     result['enhance_loss_on_new'] = enhance_loss_on_new
             if params['distill']:
                 result['bg_masks'] = torch.cat(bg_masks)
         return result
@@ -261,8 +261,8 @@ class FocalLoss(nn.Module):
             
        
         if incremental_state:
-            if params['enhance_on_new']:
-                enhance_loss_on_new = None
+            # if params['enhance_on_new']:
+            #     enhance_loss_on_new = None
             if params['distill']:
                 bg_masks = []
  
@@ -376,23 +376,28 @@ class FocalLoss(nn.Module):
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
-
             
+            if incremental_state and params['enhance_on_new']:
+                # false negative mask on new task
+                fn_mask = classification[bg_mask, past_class_num:] > 0.05
+                if fn_mask.sum() != 0:
+                    print(cls_loss[bg_mask, past_class_num:][fn_mask].sum())
+
 
             bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
             fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
             # classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
 
 
-            if incremental_state and params['enhance_on_new']:
-                new_class_bg = classification[bg_mask, past_class_num:]
-                # false negative mask
-                fn_mask = new_class_bg > 0.05
-                if (fn_mask > 0.05).sum() != 0:
-                    if enhance_loss_on_new == None:
-                        enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
-                    else:
-                        enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+            # if incremental_state and params['enhance_on_new']:
+            #     new_class_bg = classification[bg_mask, past_class_num:]
+            #     # false negative mask
+            #     fn_mask = new_class_bg > 0.05
+            #     if (fn_mask > 0.05).sum() != 0:
+            #         if enhance_loss_on_new == None:
+            #             enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
+            #         else:
+            #             enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
 
             # compute the loss for regression
             if positive_indices.sum() > 0:
@@ -444,10 +449,10 @@ class FocalLoss(nn.Module):
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
         
         if incremental_state:
-            if params['enhance_on_new']:
-                if enhance_loss_on_new != None:
-                    enhance_loss_on_new /= classifications.shape[0]
-                result['enhance_loss_on_new'] = enhance_loss_on_new
+            # if params['enhance_on_new']:
+            #     if enhance_loss_on_new != None:
+            #         enhance_loss_on_new /= classifications.shape[0]
+            #     result['enhance_loss_on_new'] = enhance_loss_on_new
             if params['distill']:
                 result['bg_masks'] = torch.cat(bg_masks)
         return result
@@ -647,9 +652,9 @@ class IL_Loss():
                 result['cls_fg_loss'] = result['cls_fg_loss'].mean()
             result['reg_loss'] = losses['reg_loss'].mean()
 
-            # Whether ignore ground truth
-            if self.params['enhance_on_new']:
-                result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
+            # # Whether ignore ground truth
+            # if self.params['enhance_on_new']:
+            #     result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
 
             # Compute distillation loss
             if self.params['distill']:
