@@ -265,6 +265,8 @@ class FocalLoss(nn.Module):
             #     enhance_loss_on_new = None
             if params['distill']:
                 bg_masks = []
+            if params['enhance_on_new']:
+                enhance_on_new_loss = torch.tensor(0).float().cuda()
  
 
         batch_size = classifications.shape[0]
@@ -381,7 +383,8 @@ class FocalLoss(nn.Module):
                 # false negative mask on new task
                 fn_mask = classification[bg_mask, past_class_num:] > 0.05
                 if fn_mask.sum() != 0:
-                    print(cls_loss[bg_mask, past_class_num:][fn_mask].sum())
+                    enhance_on_new_loss += torch.pow(classification[bg_mask, past_class_num:][fn_mask], 2).sum()
+                    # print(cls_loss[bg_mask, past_class_num:][fn_mask].sum())
             
             # fake label
             if incremental_state and params['persuado_label'] and progress != -1:
@@ -446,6 +449,8 @@ class FocalLoss(nn.Module):
         if incremental_state:
             if params['distill']:
                 result['bg_masks'] = torch.cat(bg_masks)
+            if params['enhance_on_new']:
+                result['enhance_on_new_loss'] = enhance_on_new_loss
         return result
 
 class IL_Loss():
@@ -658,6 +663,8 @@ class IL_Loss():
                 result['cls_fg_loss'] = result['cls_fg_loss'].mean()
             result['reg_loss'] = losses['reg_loss'].mean()
 
+            if self.params['enhance_on_new']:
+                result['enhance_on_new_loss'] = losses['enhance_on_new_loss']
             # # Whether ignore ground truth
             # if self.params['enhance_on_new']:
             #     result['enhance_loss_on_new'] = losses['enhance_loss_on_new']
