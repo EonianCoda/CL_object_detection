@@ -462,7 +462,9 @@ class ResNet(nn.Module):
         classification, regrsssion, anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=True)
         loss = losses.FocalLoss().forward(classification, regrsssion, anchors, annotations, cur_state=0, params=params)
 
-        cls_loss = loss['cls_loss'].mean()
+        bg_loss, fg_loss = loss['cls_loss']
+        cls_loss = (bg_loss + fg_loss).mean()
+
         reg_loss = loss['reg_loss'].mean()
         return cls_loss, reg_loss
 
