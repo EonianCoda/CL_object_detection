@@ -644,9 +644,9 @@ class IL_Loss():
                                             finish_progress)
 
             # clip too small loss
-            if self.il_trainer.params['clip_loss'] and is_replay:
+            if self.il_trainer.params['clip_loss']:
                 result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
-                mask = result['cls_fg_loss'] >= self.il_trainer.params['clip_replay_cls_loss']
+                mask = result['cls_fg_loss'] >= self.il_trainer.params['clip_cls_loss']
                 if mask.sum() == 0:
                     result['cls_fg_loss'] = torch.tensor(0).float().cuda()
                 else:
