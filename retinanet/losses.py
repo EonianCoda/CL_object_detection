@@ -265,9 +265,12 @@ class FocalLoss(nn.Module):
                 enhance_loss_on_new = None
             if params['distill']:
                 bg_masks = []
+ 
 
         batch_size = classifications.shape[0]
-        classification_losses = []
+        bg_losses = []
+        fg_losses = []
+        # classification_losses = []
         regression_losses = []
 
         anchor = anchors[0, :, :]
@@ -278,7 +281,6 @@ class FocalLoss(nn.Module):
         
 
         for j in range(batch_size):
-
             classification = classifications[j, :, :] # shape = (num_anchors, class_num)
             regression = regressions[j, :, :]
 
@@ -297,7 +299,10 @@ class FocalLoss(nn.Module):
                 bce = -(torch.log(1.0 - classification))
 
                 cls_loss = focal_weight * bce
-                classification_losses.append(cls_loss.sum())
+
+                bg_losses.append(cls_loss.sum())
+                fg_losses.append(torch.tensor(0).float().cuda())
+                # classification_losses.append(cls_loss.sum())
                 regression_losses.append(torch.tensor(0).float().cuda())
                 continue
 
@@ -372,7 +377,11 @@ class FocalLoss(nn.Module):
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
 
-            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+            
+
+            bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
+            fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
+            # classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
 
 
             if incremental_state and params['enhance_on_new']:
@@ -431,9 +440,7 @@ class FocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-        # result = {'cls_loss': torch.stack(classification_losses).mean(dim=0, keepdim=True),
-        #           'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
-        result = {'cls_loss': torch.stack(classification_losses),
+        result = {'cls_loss': (torch.stack(bg_losses), torch.stack(fg_losses)),
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
         
         if incremental_state:
@@ -565,15 +572,19 @@ class IL_Loss():
                                                                     enable_act=True)
             losses = self.focal_loss(classification, regression, anchors, annotations, 0, self.params)
 
+            # clip too small loss
             if self.il_trainer.params['clip_loss'] and is_replay:
-                mask = losses['cls_loss'] >= self.il_trainer.params['clip_replay_cls_loss']
+                result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
+                mask = result['cls_fg_loss'] >= self.il_trainer.params['clip_replay_cls_loss']
                 if mask.sum() == 0:
-                    cls_loss = torch.tensor(0).float().cuda()
+                    result['cls_fg_loss'] = torch.tensor(0).float().cuda()
                 else:
-                    cls_loss = losses['cls_loss'][mask].mean()
-                result['cls_loss'] = cls_loss
+                    result['cls_fg_loss'] = result['cls_fg_loss'].mean()
+                result['cls_bg_loss'] = result['cls_bg_loss'].mean()
             else:
-                result['cls_loss'] = losses['cls_loss'].mean()
+                result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
+                result['cls_bg_loss'] = result['cls_bg_loss'].mean()
+                result['cls_fg_loss'] = result['cls_fg_loss'].mean()
 
             result['reg_loss'] = losses['reg_loss'].mean()
 
@@ -621,15 +632,19 @@ class IL_Loss():
             else:
                 losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
             
-            if self.params['clip_loss']:
-                mask = losses['cls_loss'] >= self.il_trainer.params['clip_cls_loss']
+            # clip too small loss
+            if self.il_trainer.params['clip_loss'] and is_replay:
+                result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
+                mask = result['cls_fg_loss'] >= self.il_trainer.params['clip_replay_cls_loss']
                 if mask.sum() == 0:
-                    cls_loss = torch.tensor(0).float().cuda()
+                    result['cls_fg_loss'] = torch.tensor(0).float().cuda()
                 else:
-                    cls_loss = losses['cls_loss'][mask].mean()
-                result['cls_loss'] = cls_loss
+                    result['cls_fg_loss'] = result['cls_fg_loss'].mean()
+                result['cls_bg_loss'] = result['cls_bg_loss'].mean()
             else:
-                result['cls_loss'] = losses['cls_loss'].mean()
+                result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
+                result['cls_bg_loss'] = result['cls_bg_loss'].mean()
+                result['cls_fg_loss'] = result['cls_fg_loss'].mean()
             result['reg_loss'] = losses['reg_loss'].mean()
 
             # Whether ignore ground truth
