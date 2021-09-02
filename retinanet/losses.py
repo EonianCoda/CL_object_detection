@@ -579,7 +579,7 @@ class IL_Loss():
                 if mask.sum() == 0:
                     result['cls_fg_loss'] = torch.tensor(0).float().cuda()
                 else:
-                    result['cls_fg_loss'] = result['cls_fg_loss'].mean()
+                    result['cls_fg_loss'] = result['cls_fg_loss'][mask].mean()
                 result['cls_bg_loss'] = result['cls_bg_loss'].mean()
             else:
                 result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
@@ -639,7 +639,7 @@ class IL_Loss():
                 if mask.sum() == 0:
                     result['cls_fg_loss'] = torch.tensor(0).float().cuda()
                 else:
-                    result['cls_fg_loss'] = result['cls_fg_loss'].mean()
+                    result['cls_fg_loss'] = result['cls_fg_loss'][mask].mean()
                 result['cls_bg_loss'] = result['cls_bg_loss'].mean()
             else:
                 result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
