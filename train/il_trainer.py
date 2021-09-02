@@ -46,6 +46,7 @@ class IL_Trainer(object):
     def __init__(self, params:Params, model, optimizer, scheduler, dataset_train:IL_dataset, loss_hist=None):
         self.params = params
         self.cur_epoch = 0 
+        self.end_epoch = 0
 
         
         # training setting

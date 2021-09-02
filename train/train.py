@@ -163,8 +163,7 @@ def train_process(il_trainer : IL_Trainer):
             start_epoch = 1
             end_epoch = il_trainer.params.params['new_state_epoch']
         
-
-        
+        il_trainer.end_epoch = end_epoch
         for cur_epoch in range(start_epoch, end_epoch + 1):
             il_trainer.cur_epoch = cur_epoch
             # Some Log 

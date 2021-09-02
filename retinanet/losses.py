@@ -252,7 +252,7 @@ class ProtoTypeFocalLoss(nn.Module):
         return result
 
 class FocalLoss(nn.Module):
-    def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params):
+    def forward(self, classifications, regressions, anchors, annotations, cur_state:int,params, progress=-1):
         alpha = params['alpha'] # default = 0.25
         gamma = params['gamma'] # default = 2
 
@@ -314,11 +314,11 @@ class FocalLoss(nn.Module):
     
             # get background anchor idx
             bg_mask = torch.lt(IoU_max, 0.4)
+            past_class_num = params.states[cur_state]['num_past_class']
             # whether ignore past class
             if not incremental_state or (incremental_state and not params['ignore_past_class']):
                 targets[bg_mask, :] = 0
             else:
-                past_class_num = params.states[cur_state]['num_past_class']
                 targets[bg_mask, past_class_num:] = 0
                 if params['new_ignore_past_class']:
                     # targets_old = torch.zeros(classification.shape, device=torch.device('cuda:0'))
@@ -382,22 +382,17 @@ class FocalLoss(nn.Module):
                 fn_mask = classification[bg_mask, past_class_num:] > 0.05
                 if fn_mask.sum() != 0:
                     print(cls_loss[bg_mask, past_class_num:][fn_mask].sum())
+            
+            # fake label
+            if incremental_state and params['persuado_label'] and progress != -1:
+                fake_label_anchor = (targets[:,past_class_num:] == 1).any(dim=1)
+                # false positive for old class in new target
+                fp_mask = classification[fake_label_anchor, :past_class_num] > 0.05
+                cls_loss[fake_label_anchor, :past_class_num][fp_mask] *= progress
 
 
             bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
             fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
-            # classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
-
-
-            # if incremental_state and params['enhance_on_new']:
-            #     new_class_bg = classification[bg_mask, past_class_num:]
-            #     # false negative mask
-            #     fn_mask = new_class_bg > 0.05
-            #     if (fn_mask > 0.05).sum() != 0:
-            #         if enhance_loss_on_new == None:
-            #             enhance_loss_on_new = torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
-            #         else:
-            #             enhance_loss_on_new += torch.pow(new_class_bg[fn_mask], 2).sum() /torch.clamp(num_positive_anchors.float(), min=1.0)
 
             # compute the loss for regression
             if positive_indices.sum() > 0:
@@ -449,10 +444,6 @@ class FocalLoss(nn.Module):
                   'reg_loss': torch.stack(regression_losses).mean(dim=0, keepdim=True)}
         
         if incremental_state:
-            # if params['enhance_on_new']:
-            #     if enhance_loss_on_new != None:
-            #         enhance_loss_on_new /= classifications.shape[0]
-            #     result['enhance_loss_on_new'] = enhance_loss_on_new
             if params['distill']:
                 result['bg_masks'] = torch.cat(bg_masks)
         return result
@@ -623,7 +614,7 @@ class IL_Loss():
             # Bic method
             if self.params['bic']:
                 classification = self.il_trainer.bic.bic_correction(classification)
-           
+            
             # Compute focal loss
             if self.il_trainer.params['prototype_loss'] and self.il_trainer.cur_epoch > 5:
                 losses = self.prototypefocal_loss(self.classifier_act(classification), 
@@ -635,8 +626,23 @@ class IL_Loss():
                                                     self.il_trainer.protoTyper.prototype_features)
                 result['prototype_loss'] = losses['prototype_loss']
             else:
-                losses = self.focal_loss(self.classifier_act(classification), regression, anchors, annotations,cur_state,self.params)
-            
+                if not self.il_trainer.params['persuado_label']:
+                    losses = self.focal_loss(self.classifier_act(classification), 
+                                            regression, 
+                                            anchors, 
+                                            annotations,
+                                            cur_state,
+                                            self.params)
+                else:
+                    finish_progress =  float(self.il_trainer.cur_epoch / self.il_trainer.end_epoch)
+                    losses = self.focal_loss(self.classifier_act(classification), 
+                                            regression, 
+                                            anchors, 
+                                            annotations,
+                                            cur_state,
+                                            self.params,
+                                            finish_progress)
+
             # clip too small loss
             if self.il_trainer.params['clip_loss'] and is_replay:
                 result['cls_bg_loss'], result['cls_fg_loss']  = losses['cls_loss']
