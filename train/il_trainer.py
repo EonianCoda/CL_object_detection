@@ -302,7 +302,7 @@ class IL_Trainer(object):
         """
 
         method = self.params['init_method']
-        if  method == "large" or method == "mean":
+        if  method == "large" or method == "mean" or method == "onlyNegative":
             debug_print("{} Similarity init ".format(self.params['init_method']))
             similarity_file = os.path.join(self.params['ckp_path'], "state{}".format(self.cur_state - 1), "similarity.pickle")
             if os.path.isfile(similarity_file):

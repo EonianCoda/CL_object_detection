@@ -190,7 +190,7 @@ class ClassificationModel(nn.Module):
 
         return out2.contiguous().view(x.shape[0], -1, self.num_classes)
 
-    def next_state(self, num_new_classes, similaritys, method="ratio"):
+    def next_state(self, num_new_classes, similaritys, method="None"):
         """increase the number of neurons in output layer
 
             Args:
@@ -206,8 +206,8 @@ class ClassificationModel(nn.Module):
         # init output layer, this process is same as ResNet __init__()
         prior = 0.01 
         self.output.weight.data.fill_(0)
-        self.output.bias.data.fill_(0)
-        # self.output.bias.data.fill_(-math.log((1.0 - prior) / prior))
+        # self.output.bias.data.fill_(0)
+        self.output.bias.data.fill_(-math.log((1.0 - prior) / prior))
         
         # copy old weight and bias    
         for i in range(self.num_anchors):
@@ -229,9 +229,20 @@ class ClassificationModel(nn.Module):
             for i in range(self.num_anchors):
                 self.output.weight.data[i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class + max_idx,:,:,:] 
                 self.output.bias.data[i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class + max_idx]
-        else:
+        elif method == "onlyNegative":
+            max_idx = int(torch.argmax(similaritys[0]))
+            print(max_idx)
+            max_idx = 12
             for i in range(self.num_anchors):
-                self.output.bias.data[i * self.num_classes + num_old_class: (i+1) * self.num_classes] = -math.log((1.0 - prior) / prior)
+                target_old_weight = old_output.weight.data[i * num_old_class + max_idx,:,:,:]
+                negative_mask = target_old_weight < 0
+                self.output.weight.data[i * self.num_classes + num_old_class,:,:,:][negative_mask] = target_old_weight[negative_mask]
+
+                # self.output.bias.data[i * self.num_classes + num_old_class: (i+1) * self.num_classes] = -math.log((1.0 - prior) / prior)
+        else:
+            print("No init")
+            # for i in range(self.num_anchors):
+            #     self.output.bias.data[i * self.num_classes + num_old_class: (i+1) * self.num_classes] = -math.log((1.0 - prior) / prior)
         self.output.cuda()
         del old_output
 
