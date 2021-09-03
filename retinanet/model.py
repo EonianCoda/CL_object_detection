@@ -459,8 +459,8 @@ class ResNet(nn.Module):
         return tuple(result)
 
     def cal_simple_focal_loss(self, img_batch, annotations, params):
-        classification, regrsssion, anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=True)
-        loss = losses.FocalLoss().forward(classification, regrsssion, anchors, annotations, cur_state=0, params=params)
+        classification, regression, anchors = self.forward(img_batch, return_feat=False, return_anchor=True, enable_act=True)
+        loss = losses.FocalLoss().forward(classification, regression, anchors, annotations, cur_state=0, params=params)
 
         bg_loss, fg_loss = loss['cls_loss']
         cls_loss = (bg_loss + fg_loss).mean()
