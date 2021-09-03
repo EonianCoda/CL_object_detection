@@ -104,8 +104,7 @@ class ProtoTyper(object):
         del dataloader
         del dataset
 
-    def init_prototype(self, state:int):
-        
+    def init_prototype(self, state:int): 
         num_classes = self.il_trainer.model.classificationModel.num_classes
         feature_temp_path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state), 'features')
         create_dir(feature_temp_path)
@@ -146,22 +145,27 @@ class ProtoTyper(object):
             return torch.norm(a - b, dim=3)
 
 
-        path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state))
+        file_path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state))
         file_name = "classification_herd_samples.pickle"
-
-        if os.path.isfile(os.path.join(path, file_name)):
+        # if temp file exists, then  return
+        if os.path.isfile(os.path.join(file_path, file_name)):
             return
 
 
         feature_temp_path = os.path.join(self.il_trainer.params['ckp_path'], 'state{}'.format(state), 'features')
         create_dir(feature_temp_path)
-        num_classes = self.il_trainer.model.classificationModel.num_classes
 
 
-        feats = []
-        count = torch.zeros(num_classes, self.num_anchors, 1)
+        num_classes = len(self.il_trainer.params.states[state]['knowing_class']['id'])
+        num_new_classes = len(self.il_trainer.params.states[state]['new_class']['id'])
+        if num_classes != self.il_trainer.model.classificationModel.num_classes:
+            raise ValueError("Current model has {} classes, but state file has {} classes.".format(self.il_trainer.model.classificationModel.num_classes, num_classes))
 
+        
+
+        # get the number of the feature files
         num_files = len(os.listdir(feature_temp_path))
+        # if the feature temp file not exits, then calculate features
         if num_files == 0 or self.prototype_features == None:
             self.init_prototype(state)
             if num_files == 0:
@@ -169,7 +173,8 @@ class ProtoTyper(object):
                 if num_files == 0:
                     raise ValueError("Unknowing Error in cal_examplar")
 
-
+        feats = []
+        count = torch.zeros(num_classes, self.num_anchors, 1)
         for i in range(num_files):
             with open(os.path.join(feature_temp_path,'f_{}.pickle'.format(i)), 'rb') as f:
                 feat, num = pickle.load(f)
@@ -178,9 +183,9 @@ class ProtoTyper(object):
 
         feats = torch.cat(feats)
 
-        pos_mask = ~(torch.sum(feats, dim=3) == 0)
-        distance_target = torch.zeros_like(pos_mask).long()
-        distance_target[pos_mask] = 1
+        has_target_mask = ~(torch.sum(feats, dim=3) == 0)
+        distance_target = torch.zeros_like(has_target_mask).long()
+        distance_target[has_target_mask] = 1
         distance = distance_fun(feats, self.prototype_features.unsqueeze(dim=0))
         distance *= distance_target
 
@@ -188,31 +193,30 @@ class ProtoTyper(object):
         dataset = IL_dataset(self.il_trainer.params,
                             transform=transforms.Compose([Normalizer(), Resizer()]),
                             start_state=state)
-
         sampler = AspectRatioBasedSampler(dataset, batch_size = self.il_trainer.params['batch_size'], drop_last=False, shuffle=False)
+        # mapping index to real image id
         img_ids = []
-        for g in sampler.groups:
-            img_ids.extend(g)
+        for group in sampler.groups:
+            img_ids.extend(group)
         for i in range(len(img_ids)):
             img_ids[i] = dataset.image_ids[img_ids[i]]
         img_ids = torch.tensor(img_ids)
 
-        sample_file = {}
-        for class_id in range(num_classes):
 
-            sample_file[class_id] = {}
+
+        sample_file = dict()
+        
+        for class_id in range(num_classes - num_new_classes, num_classes):
+            coco_id = dataset.label_to_coco_label[class_id]
+            sample_file[coco_id] = dict()
             for anchor_id in range(self.num_anchors):
                 cur_distance = distance[:,class_id, anchor_id]
                 nonzero_ids = cur_distance.nonzero().squeeze()
                 sorted_ids = nonzero_ids[cur_distance[nonzero_ids].argsort()] # nonzero_ids.gather(0, cur_distance[nonzero_ids].argsort())
                 sorted_ids = img_ids[sorted_ids]
-                
-                # for i in range(len(sorted_ids)):
-                #     sorted_ids[i] = img_ids[sorted_ids[i]]
+                sample_file[coco_id][anchor_id] = sorted_ids.tolist()
 
-                sample_file[class_id][anchor_id] = sorted_ids.tolist()
-
-        with open(os.path.join(path, file_name),'wb') as f:
+        with open(os.path.join(file_path, file_name),'wb') as f:
             pickle.dump((sample_file, count), f)
 
     def __del__(self):

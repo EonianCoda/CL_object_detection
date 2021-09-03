@@ -124,21 +124,20 @@ class IL_Trainer(object):
             return
 
         if self.prev_model != None:
-            self.prev_model.cpu()
+            # self.prev_model.cpu()
             del self.prev_model
         self.prev_model = create_retinanet(self.params['depth'], num_classes=self.params.states[self.cur_state - 1]['num_knowing_class'])
         self.params.load_model(self.cur_state - 1, -1, self.prev_model)
         self.prev_model.training = False
-        self.prev_model.cuda()
+        # self.prev_model.cuda()
 
     def init_prototyper(self):
         if self.params['prototype_loss'] or self.params['sample_method'] == 'prototype_herd':
             self.protoTyper = ProtoTyper(self)
+            # use prototype to calculate examplar
             if self.params['sample_method'] == 'prototype_herd':
-                # path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-                # file_name = 'classification_herd_samples.pickle'
-                # if not os.path.isfile(os.path.join(path, file_name)):
                 self.protoTyper.cal_examplar(self.cur_state - 1)
+
             if not self.params['prototype_loss']:
                 del self.protoTyper
             elif self.protoTyper.prototype_features == None:
@@ -148,94 +147,71 @@ class IL_Trainer(object):
     def init_replay_dataset(self):
         """init reaply dataset if params['sample_num'] > 0
         """
-        # Replay dataloader
+        # if sample num < 0, then no examplar
         if self.params['sample_num'] <= 0:
             return
         
         self.dataset_replay = Replay_dataset(self.params,
-                                            transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
+                                             transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
 
-        # if self.params['sample_method'] == 'herd':
         if self.params['sample_method'] == 'herd':
-            
             self.herd_sampler = Herd_sampler(self)
             self.herd_sampler.sample(self.params['sample_num'])
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=self.herd_sampler.examplar_list)
 
         elif self.params['sample_method'] == 'prototype_herd':
-            path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-            file_name = 'classification_herd_samples.pickle'
-            if not os.path.isfile(os.path.join(path, file_name)):
-                raise ValueError("Unkowing Error in init prototype_herd")
-            with open(os.path.join(path, file_name), 'rb') as f:
-                sample_dict, count = pickle.load(f)
-
-            coco = self.params.states.coco
-
-
-            knowing_class_ids = self.params.states[self.cur_state - 1]['knowing_class']['id']
-            future_ids = []
-            for i in range(1, 20 + 1):
-                if i not in knowing_class_ids:
-                    future_ids.append(i)
-
-            future_img_ids = coco.get_imgs_by_cats(future_ids)
-
-
-            count = count.squeeze()
-            ranked_count = torch.argsort(count, descending=True).int()
-
-            examplar_dict = {}
-            sample_img_ids = []
             per_num = self.params['sample_num']
-            
-            num_anchors = len(ranked_count[0])
-            sample_for_each_anchor = [0 for _ in range(num_anchors)]
-            
-            i = 0
-            for _ in range(per_num):
-                sample_for_each_anchor[i] += 1
-                i = (i + 1) % num_anchors
+            num_anchors = self.model.classificationModel.num_anchors
+            sample_img_ids = []
+            examplar_dict = {}
+            for state in range(self.cur_state):
+                # read examplar rank file
+                path = os.path.join(self.params['ckp_path'], 'state{}'.format(state))
+                file_name = 'classification_herd_samples.pickle'
+                if not os.path.isfile(os.path.join(path, file_name)):
+                    raise ValueError("Unkowing Error in init prototype_herd")
+                with open(os.path.join(path, file_name), 'rb') as f:
+                    sample_dict, count = pickle.load(f)
+
+                # get furture image ids
+                coco = self.params.states.coco
+                knowing_class_ids = self.params.states[state]['knowing_class']['id']
+                future_ids = []
+                for i in range(1, len(coco.classes) + 1):
+                    if i not in knowing_class_ids:
+                        future_ids.append(i)
+                future_img_ids = coco.get_imgs_by_cats(future_ids)
 
 
-            for class_id in sample_dict.keys():
-                examplar_dict[class_id] = []
-                for idx, anchor_id in enumerate(ranked_count[class_id]):
-                    anchor_id = int(anchor_id)
+                count = count.squeeze()
+                # sort count
+                ranked_count = torch.argsort(count, descending=True).int()
+                sample_for_each_anchor = [0 for _ in range(num_anchors)]
+                i = 0
+                for _ in range(per_num):
+                    sample_for_each_anchor[i] += 1
+                    i = (i + 1) % num_anchors
 
-                    cur_anchor_num_sample = sample_for_each_anchor[idx]
-                    if cur_anchor_num_sample == 0:
-                        continue
-                    for img_id in sample_dict[class_id][anchor_id]:
-                        if img_id not in sample_img_ids and img_id not in future_img_ids:
-                            sample_img_ids.append(img_id)
-                            examplar_dict[class_id].append(img_id)
-                            cur_anchor_num_sample -= 1
-                            if cur_anchor_num_sample == 0:
-                                break
+
+                for coco_id in sample_dict.keys():
+                    examplar_dict[coco_id] = []
+                    for idx, anchor_id in enumerate(ranked_count[coco_id]):
+                        anchor_id = int(anchor_id)
+
+                        cur_anchor_num_sample = sample_for_each_anchor[idx]
+                        if cur_anchor_num_sample == 0:
+                            continue
+                        for img_id in sample_dict[coco_id][anchor_id]:
+                            if img_id not in sample_img_ids and img_id not in future_img_ids:
+                                sample_img_ids.append(img_id)
+                                examplar_dict[coco_id].append(img_id)
+                                cur_anchor_num_sample -= 1
+                                if cur_anchor_num_sample == 0:
+                                    break
   
             self.dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=sample_img_ids)
 
-        # elif self.params['sample_method'] == 'maxNum':
-        #     path = os.path.join(self.params['ckp_path'], 'state{}'.format(self.cur_state - 1))
-        #     with open(os.path.join(path, 'maxNum_scores.pickle'), 'rb') as f:
-        #         classed_max_lists = pickle.load(f)
-        #     examplar = []
-        #     for cat_id in self.params.states[self.cur_state - 1]['knowing_class']['id']:
-        #         nums = [num for num in classed_max_lists[cat_id].keys()]
-        #         nums.sort(reverse=True)
-        #         cur_num = 0
-        #         for num in nums:
-        #             for img_id in classed_max_lists[cat_id][num]:
-        #                 if img_id not in examplar:
-        #                     examplar.append(img_id)
-        #                     cur_num += 1
-        #                     if cur_num == self.params['sample_num']:
-        #                         break
-        #             if cur_num == self.params['sample_num']:
-        #                 break
-        #     self.dataset_replay.reset_by_imgIds(self.params['sample_num'], examplar)
-        else: # random sample
+        else:
             self.dataset_replay.reset_by_state(self.cur_state)
 
         # save samples png
@@ -328,6 +304,8 @@ class IL_Trainer(object):
         self.cur_state += 1
         self.update_mas()
         self.dataset_train.next_state()
+        if self.params['sample_num'] != 0:
+            self.init_prototyper()
         self.update_training_tools()
         
     
@@ -336,9 +314,8 @@ class IL_Trainer(object):
                 self.init_replay_dataset()
                 self.init_bic()
                 self.init_agem()
-
             else:
-                self.dataset_replay.next_state()  
+                self.init_replay_dataset()
             self.update_replay_dataloader()
  
         self.update_dataloader()

@@ -1,3 +1,5 @@
+import os
+import pickle
 from torch import tensor
 from IL_method.persuado_label import Labeler
 import argparse
@@ -13,7 +15,7 @@ import torch.optim as optim
 from torchvision import transforms
 # retinanet
 from retinanet.model import create_retinanet
-from retinanet.dataloader import AspectRatioBasedSampler, IL_dataset, collater
+from retinanet.dataloader import AspectRatioBasedSampler, IL_dataset, Replay_dataset, collater
 from retinanet.dataloader import Resizer, Augmenter, Normalizer
 # preprocessing
 from preprocessing.params import Params
@@ -293,6 +295,10 @@ def cal_loss(data, model, params):
         return result
 
 
+
+
+
+
 def main(args=None):
     parser = get_parser(args)
     params = Params(parser)
@@ -310,6 +316,67 @@ def main(args=None):
     num_classes = params.states[cur_state]['num_knowing_class']
     num_old_classes = params.states[cur_state]['num_past_class']
     num_anchors = classificationModel.num_anchors
+
+
+
+    # dataset_replay = Replay_dataset(params,
+    #                                 transform=transforms.Compose([Normalizer(), Augmenter(), Resizer()]))
+
+
+    # path = os.path.join(params['ckp_path'], 'state{}'.format(cur_state))
+    # file_name = 'classification_herd_samples.pickle'
+    # if not os.path.isfile(os.path.join(path, file_name)):
+    #     raise ValueError("Unkowing Error in init prototype_herd")
+    # with open(os.path.join(path, file_name), 'rb') as f:
+    #     sample_dict, count = pickle.load(f)
+
+    # coco = params.states.coco
+
+
+    # knowing_class_ids = params.states[cur_state - 1]['knowing_class']['id']
+    # future_ids = []
+    # for i in range(1, 20 + 1):
+    #     if i not in knowing_class_ids:
+    #         future_ids.append(i)
+
+    # future_img_ids = coco.get_imgs_by_cats(future_ids)
+
+
+    # count = count.squeeze()
+    # ranked_count = torch.argsort(count, descending=True).int()
+
+    # examplar_dict = {}
+    # sample_img_ids = []
+    # per_num = params['sample_num']
+    
+    # num_anchors = len(ranked_count[0])
+    # sample_for_each_anchor = [0 for _ in range(num_anchors)]
+    
+    # i = 0
+    # for _ in range(per_num):
+    #     sample_for_each_anchor[i] += 1
+    #     i = (i + 1) % num_anchors
+
+
+    # for class_id in sample_dict.keys():
+    #     examplar_dict[class_id] = []
+    #     for idx, anchor_id in enumerate(ranked_count[class_id]):
+    #         anchor_id = int(anchor_id)
+
+    #         cur_anchor_num_sample = sample_for_each_anchor[idx]
+    #         if cur_anchor_num_sample == 0:
+    #             continue
+    #         for img_id in sample_dict[class_id][anchor_id]:
+    #             if img_id not in sample_img_ids and img_id not in future_img_ids:
+    #                 sample_img_ids.append(img_id)
+    #                 examplar_dict[class_id].append(img_id)
+    #                 cur_anchor_num_sample -= 1
+    #                 if cur_anchor_num_sample == 0:
+    #                     break
+  
+    # dataset_replay.reset_by_imgIds(per_num=self.params['sample_num'], img_ids=sample_img_ids)
+
+
 
     print("Total IterNum:",len(dataloader_train))
     for epoch in range(params['start_epoch'], params['end_epoch'] + 1):
