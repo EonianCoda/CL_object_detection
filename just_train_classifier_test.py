@@ -322,6 +322,7 @@ def main(args=None):
                     result = cal_loss(data, model, params)
                     loss = torch.tensor(0).float().cuda()
 
+                    # collect loss
                     info = [epoch, iter_num]
                     output = 'Epoch: {0[0]:2d} | Iter: {0[1]:3d}'
                     for key, value in result.items():
@@ -333,8 +334,10 @@ def main(args=None):
                     end = time.time()
                     info.extend([np.mean(loss_hist), float(end - start)])
 
+                    
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(model.parameters(), 0.1)
+                    # ignore grad for old class
                     if params['just_train_new']:
                         for i in range(num_anchors):
                             start_idx = i *  num_classes
@@ -346,14 +349,6 @@ def main(args=None):
                     end = time.time()
 
                     print(output.format(info))
-                    
-                    # print("Epoch: {} | Iter: {} | Cls_loss: {:.3f} | Reg_loss: {:.3f} | Total_loss: {:.3f} | Running_loss: {:.3f} | Time: {:.2f}s".format(epoch, 
-                    #                                                                                                                                 iter_num, 
-                    #                                                                                                                                 float(cls_loss), 
-                    #                                                                                                                                 float(reg_loss), 
-                    #                                                                                                                                 float(loss),
-                    #                                                                                                                                 np.mean(loss_hist),
-                    #                                                                                                                                 float(end - start)))
                 except Exception as e:
                     print(e)
                     return None
