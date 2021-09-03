@@ -207,7 +207,7 @@ class ProtoTyper(object):
         sample_file = dict()
         
         for class_id in range(num_classes - num_new_classes, num_classes):
-            coco_id = dataset.label_to_coco_label[class_id]
+            coco_id = dataset.label_to_coco_label(class_id)
             sample_file[coco_id] = dict()
             for anchor_id in range(self.num_anchors):
                 cur_distance = distance[:,class_id, anchor_id]
