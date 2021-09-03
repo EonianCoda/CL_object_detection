@@ -332,6 +332,7 @@ def main(args=None):
                     
                     output += ' | Running loss: {0[%d]:1.5f} | Spend Time:{0[%d]:1.2f}s' % (len(info), len(info)+1)
                     end = time.time()
+                    loss_hist.append(float(loss))
                     info.extend([np.mean(loss_hist), float(end - start)])
 
                     
@@ -345,8 +346,7 @@ def main(args=None):
                             classificationModel.output.bias.grad[start_idx : start_idx + num_old_classes] = 0
                         
                     optimizer.step()
-                    loss_hist.append(float(loss))
-                    end = time.time()
+                    
 
                     print(output.format(info))
                 except Exception as e:
