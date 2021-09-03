@@ -195,7 +195,9 @@ class IL_Trainer(object):
 
                 for coco_id in sample_dict.keys():
                     examplar_dict[coco_id] = []
-                    for idx, anchor_id in enumerate(ranked_count[coco_id]):
+
+                    dataset_id = self.params.states[state]['knowing_class']['id'].index(coco_id)
+                    for idx, anchor_id in enumerate(ranked_count[dataset_id]):
                         anchor_id = int(anchor_id)
 
                         cur_anchor_num_sample = sample_for_each_anchor[idx]
