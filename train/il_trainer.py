@@ -124,12 +124,12 @@ class IL_Trainer(object):
             return
 
         if self.prev_model != None:
-            # self.prev_model.cpu()
+            self.prev_model.cpu()
             del self.prev_model
         self.prev_model = create_retinanet(self.params['depth'], num_classes=self.params.states[self.cur_state - 1]['num_knowing_class'])
         self.params.load_model(self.cur_state - 1, -1, self.prev_model)
         self.prev_model.training = False
-        # self.prev_model.cuda()
+        self.prev_model.cuda()
 
     def init_prototyper(self):
         if self.params['prototype_loss'] or self.params['sample_method'] == 'prototype_herd':
