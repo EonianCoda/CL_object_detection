@@ -8,6 +8,8 @@ import torchvision
 from retinanet import losses
 from retinanet.utils import BasicBlock, Bottleneck, BBoxTransform, ClipBoxes
 from retinanet.anchors import Anchors
+from torch.nn import functional as F
+from torch.nn.parameter import Parameter
 
 from preprocessing.debug import debug_print, DEBUG_FLAG
 model_urls = {
@@ -17,6 +19,27 @@ model_urls = {
     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
+
+class NormalizedConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding, stride=1):
+        super(NormalizedConv2d, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = kernel_size
+        self.padding = padding
+        self.stride = stride
+        self.weight = Parameter(torch.Tensor(out_channels, in_channels * (kernel_size * kernel_size)))
+        self.bias =  Parameter(torch.Tensor(out_channels))
+
+    def forward(self, input):
+        w = F.normalize(self.weight, p=2,dim=1).view(self.out_channels, self.in_channels, self.kernel_size, self.kernel_size)
+        out = F.conv2d(input, 
+                         weight=w, 
+                         bias=self.bias, 
+                         stride=self.stride, 
+                         padding=self.padding)
+
+        return out
 
 
 class PyramidFeatures(nn.Module):
