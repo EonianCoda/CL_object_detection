@@ -59,7 +59,7 @@ def create_IL_trainer(params:Params):
     
     optimizer = optim.Adam([{'params':get_parameters(retinanet, WHITE_LIST_FOR_OPTIM)},
                             {'params':retinanet.classificationModel.output.parameters()}]
-                            , lr=params['lr'])
+                            , lr=params['lr'], eps=1e-4)
 
 
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=params['scheduler_milestone'], gamma=params['scheduler_decay'], verbose=True)
