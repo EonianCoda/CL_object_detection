@@ -2,17 +2,18 @@
 import torch
 import time
 import numpy as np
+from torch.optim import optimizer
 # retinanet
 from retinanet.losses import IL_Loss
 from train.il_trainer import IL_Trainer
 # tool
 from recorder import Recorder
 import random
-def fast_zero_grad(model):
-    for param in model.parameters():
-        param.grad = None
+# def fast_zero_grad(model):
+#     for param in model.parameters():
+#         param.grad = None
 
-def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=False):
+def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=False, scaler=None):
     """
         Args:
         Return: a dict, containing loss information
@@ -20,8 +21,9 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
     # with torch.cuda.amp.autocast():
 
     warm_classifier = (il_trainer.cur_warm_stage != -1) and (il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
-
-    with torch.cuda.device(0):
+    il_trainer.optimizer.zero_grad()
+    with torch.cuda.amp.autocast():
+    #with torch.cuda.device(0):
         losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay)
 
         loss = torch.tensor(0).float().cuda()
@@ -44,9 +46,10 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             loss_info['mas_loss'] = float(mas_loss)
             loss += mas_loss
 
-        loss.backward()
-        if not warm_classifier and not il_trainer.params['no_clip']:
-            torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+        #loss.backward()
+        scaler.scale(loss).backward()
+        # if not warm_classifier and not il_trainer.params['no_clip']:
+        #     torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
 
         # warm classifier
         if warm_classifier:
@@ -62,7 +65,9 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
         if not is_replay and il_trainer.params['agem']:
             il_trainer.agem.fix_grad(il_trainer.model)
 
-        il_trainer.optimizer.step()
+        scaler.step(il_trainer.optimizer)
+        scaler.update()
+        #il_trainer.optimizer.step()
         il_trainer.loss_hist.append(float(loss))
         loss_info['total_loss'] = float(loss)
 
@@ -87,16 +92,16 @@ def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_
     info.extend([np.mean(il_trainer.loss_hist), spend_time])
     print(output.format(info))
 
-def cal_losses(il_trainer, il_loss, data, is_replay=False):
-    fast_zero_grad(il_trainer.model)
+def cal_losses(il_trainer, il_loss, data, is_replay=False, scaler=None):
+    #fast_zero_grad(il_trainer.model)
     if not il_trainer.params['debug']:
         try:
-            losses = training_iteration(il_trainer,il_loss, data, is_replay)
+            losses = training_iteration(il_trainer,il_loss, data, is_replay,scaler=scaler)
         except Exception as e:
             print(e)
             return None
     else:
-        losses = training_iteration(il_trainer,il_loss, data, is_replay)
+        losses = training_iteration(il_trainer,il_loss, data, is_replay,scaler=scaler)
 
     if losses == None:
         return None
@@ -151,6 +156,7 @@ def train_process(il_trainer : IL_Trainer):
 
     # init IL loss
     il_loss = IL_Loss(il_trainer)
+    scaler = torch.cuda.amp.GradScaler()
 
     for cur_state in range(start_state, end_state  + 1):
         print("State: {}".format(cur_state))
@@ -164,6 +170,7 @@ def train_process(il_trainer : IL_Trainer):
             end_epoch = il_trainer.params['new_state_epoch']
         
         il_trainer.end_epoch = end_epoch
+        origin_lr = il_trainer.optimizer.param_groups[0]['lr']
         for cur_epoch in range(start_epoch, end_epoch + 1):
             il_trainer.cur_epoch = cur_epoch
             # Some Log 
@@ -203,15 +210,22 @@ def train_process(il_trainer : IL_Trainer):
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
-                change_beta(il_trainer, is_replay=False)
+                #change_beta(il_trainer, is_replay=False)
 
+                # warm up
+                if cur_epoch == 1 and iter_num <= 100:
+                    il_trainer.optimizer.param_groups[0]['lr'] = origin_lr * (iter_num / 100) 
+                    il_trainer.optimizer.param_groups[1]['lr'] = origin_lr * (iter_num / 100)
+                else:
+                    il_trainer.optimizer.param_groups[0]['lr'] = origin_lr
+                    il_trainer.optimizer.param_groups[1]['lr'] = origin_lr
 
                 start = time.time()
                 if il_trainer.params['agem']:
                     il_trainer.agem.cal_replay_grad(il_loss)
                     
                 
-                losses = cal_losses(il_trainer, il_loss, data, is_replay=False)
+                losses = cal_losses(il_trainer, il_loss, data, is_replay=False, scaler=scaler)
                 if losses != None:
                     #continue
                     end = time.time()
