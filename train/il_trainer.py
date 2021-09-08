@@ -297,7 +297,7 @@ class IL_Trainer(object):
         # self.optimizer = optim.Adam(self.model.parameters(), lr=self.params['lr'])
         self.optimizer = optim.Adam([{'params':get_parameters(self.model, WHITE_LIST_FOR_OPTIM)},
                                     {'params':self.model.classificationModel.output.parameters()}]
-                                    , lr=self.params['lr'], eps=1e-4)
+                                    , lr=self.params['lr'], eps=1e-3)
         self.scheduler = optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=self.params['scheduler_milestone'], gamma=self.params['scheduler_decay'], verbose=True)
 
         #self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, patience=3, verbose=True)
