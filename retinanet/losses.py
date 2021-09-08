@@ -394,8 +394,8 @@ class FocalLoss(nn.Module):
                 cls_loss[fake_label_anchor, :past_class_num][fp_mask] *= progress
 
 
-            bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
-            fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
+            bg_losses.append((cls_loss[torch.eq(targets, 0.0)] / torch.clamp(num_positive_anchors.float(), min=1.0)).sum())
+            fg_losses.append((cls_loss[torch.eq(targets, 1.0)] / torch.clamp(num_positive_anchors.float(), min=1.0)).sum())
 
             # compute the loss for regression
             if positive_indices.sum() > 0:
