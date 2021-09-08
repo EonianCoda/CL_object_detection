@@ -16,8 +16,8 @@ from preprocessing.params import Params
 from train.il_trainer import IL_Trainer, get_parameters, WHITE_LIST_FOR_OPTIM
 from train.train import train_process
 # Global Setting
-
-ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
+ROOT_DIR = "/content/drive/My Drive/work/"
+#ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/" 
 PRINT_INFO = True # whether print some information about continual learning on the scrren
 DEFAULT_ALPHA = 0.25
 DEFAULT_GAMMA = 2.0

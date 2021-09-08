@@ -52,6 +52,14 @@ class IL_dataset(Dataset):
         self.init_classes()
         self.update_imgIds()  #get this state's data
         self.persuado_label = persuado_label
+
+        path = os.path.join(params['data_path'], 'path_mapping')
+        # testvoc2007_path_mapping
+        mapping_name = '{}{}_path_mapping.pickle'.format(params['data_split'], params['dataset'])
+        
+        with open(os.path.join(path, mapping_name), 'rb') as f:
+            self.path_mapping = pickle.load(f)
+        self.temp_imgs = dict()
         
     def update_imgIds(self):
         imgIds = self.coco.get_imgs_by_cats(self.seen_class_id)
@@ -81,10 +89,25 @@ class IL_dataset(Dataset):
         return len(self.image_ids)
 
     def __getitem__(self, idx):
+        # flag = False
+        # if idx in self.temp_imgs.keys():
+        #     img = self.temp_imgs[idx]
+        # elif len(self.temp_imgs.keys()) <= 2000: 
+        #     img = self.load_image(idx)
+        #     self.temp_imgs[idx] = img
+        # else:
+        #     img = self.load_image(idx)
+        #     flag = True
+
         img = self.load_image(idx)
         annot, num_persuado_labels = self.load_annotations(idx)
 
         sample = {'img': img, 'annot': annot, 'num_persuado_labels':num_persuado_labels}
+        # if not flag:
+        #     sample = {'img': img.copy(), 'annot': annot}
+        # else:
+        #     sample = {'img': img, 'annot': annot}
+
         if self.transform:
             sample = self.transform(sample)
         
@@ -93,7 +116,9 @@ class IL_dataset(Dataset):
     def load_image(self, image_index):
         image_info = self.coco.loadImgs(self.image_ids[image_index])[0]
         file_name = image_info['file_name']
-        path = os.path.join(self.image_path, file_name) #file_name[:-4] mean the image's id
+        path = os.path.join(self.image_path, self.path_mapping[int(file_name[:-4])], file_name)
+
+        #path = os.path.join(self.image_path, file_name) #file_name[:-4] mean the image's id
         img = skimage.io.imread(path)
 
         if len(img.shape) == 2:
@@ -341,19 +366,17 @@ class Resizer(object):
 
         rows, cols, cns = image.shape
 
+        smallest_side = min(rows, cols)
+
+        # rescale the image so the smallest side is min_side
+        scale = min_side / smallest_side
+
+        # check if the largest side is now greater than max_side, which can happen
+        # when images have a large aspect ratio
         largest_side = max(rows, cols)
-        scale = max_side / largest_side
-        # smallest_side = min(rows, cols)
 
-        # # rescale the image so the smallest side is min_side
-        # scale = min_side / smallest_side
-
-        # # check if the largest side is now greater than max_side, which can happen
-        # # when images have a large aspect ratio
-        # largest_side = max(rows, cols)
-
-        # if largest_side * scale > max_side:
-        #     scale = max_side / largest_side
+        if largest_side * scale > max_side:
+            scale = max_side / largest_side
 
         # resize the image with the computed scale
         image = skimage.transform.resize(image, (int(round(rows*scale)), int(round((cols*scale)))))
