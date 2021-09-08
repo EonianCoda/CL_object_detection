@@ -12,7 +12,7 @@ def calc_iou(a, b):
 
     ua = torch.unsqueeze((a[:, 2] - a[:, 0]) * (a[:, 3] - a[:, 1]), dim=1) + area - iw * ih
 
-    ua = torch.clamp(ua, min=1e-8)
+    ua = torch.clamp(ua, min=3e-4)
 
     intersection = iw * ih
 
@@ -56,7 +56,7 @@ class ProtoTypeFocalLoss(nn.Module):
             bbox_annotation = annotations[j, :, :]
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1]
             
-            classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4)
+            classification = torch.clamp(classification, 3e-4, 1.0 - 3e-4)
 
             if bbox_annotation.shape[0] == 0:
                 alpha_factor = torch.ones(classification.shape, device=torch.device('cuda:0')) * alpha
@@ -130,8 +130,8 @@ class ProtoTypeFocalLoss(nn.Module):
                 targets_for_mid = torch.zeros(classification.shape, device=torch.device('cuda:0'))
                 targets_for_mid[mid_indices, assigned_annotations[mid_indices, 4].long()] = 1
                 
-                upper_score = torch.clip(IoU_max + 0.2, 1e-4, 1 - 1e-4).unsqueeze(dim=1)
-                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 1e-4, torch.abs(classification - upper_score)), focal_weight)
+                upper_score = torch.clip(IoU_max + 0.2, 3e-4, 1 - 3e-4).unsqueeze(dim=1)
+                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 3e-4, torch.abs(classification - upper_score)), focal_weight)
 
             else:
                 new_class_upper_score = params['decrease_positive']
@@ -289,7 +289,7 @@ class FocalLoss(nn.Module):
             bbox_annotation = annotations[j, :, :]
             bbox_annotation = bbox_annotation[bbox_annotation[:, 4] != -1]
             
-            classification = torch.clamp(classification, 1e-4, 1.0 - 1e-4)
+            classification = torch.clamp(classification, 3e-4, 1.0 - 3e-4)
 
             if bbox_annotation.shape[0] == 0:
                 alpha_factor = torch.ones(classification.shape, device=torch.device('cuda:0')) * alpha
@@ -360,8 +360,8 @@ class FocalLoss(nn.Module):
                 targets_for_mid = torch.zeros(classification.shape, device=torch.device('cuda:0'))
                 targets_for_mid[mid_indices, assigned_annotations[mid_indices, 4].long()] = 1
                 
-                upper_score = torch.clip(IoU_max + 0.2, 1e-4, 1 - 1e-4).unsqueeze(dim=1)
-                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 1e-4, torch.abs(classification - upper_score)), focal_weight)
+                upper_score = torch.clip(IoU_max + 0.2, 3e-4, 1 - 3e-4).unsqueeze(dim=1)
+                focal_weight = torch.where(torch.eq(targets_for_mid, 1), torch.where(classification >= upper_score, torch.ones(classification.shape, device=torch.device('cuda:0')) * 3e-4, torch.abs(classification - upper_score)), focal_weight)
 
             else:
                 new_class_upper_score = params['decrease_positive']
@@ -394,8 +394,8 @@ class FocalLoss(nn.Module):
                 cls_loss[fake_label_anchor, :past_class_num][fp_mask] *= progress
 
 
-            bg_losses.append((cls_loss[torch.eq(targets, 0.0)] / torch.clamp(num_positive_anchors.float(), min=1.0)).sum())
-            fg_losses.append((cls_loss[torch.eq(targets, 1.0)] / torch.clamp(num_positive_anchors.float(), min=1.0)).sum())
+            bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() / torch.clamp(num_positive_anchors.float(), min=1.0))
+            fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() / torch.clamp(num_positive_anchors.float(), min=1.0))
 
             # compute the loss for regression
             if positive_indices.sum() > 0:

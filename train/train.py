@@ -244,7 +244,7 @@ def train_process(il_trainer : IL_Trainer):
                     for i in range(do_replay_num[replay_iter_num]):
                         data = replay_generator.next()
                         start = time.time()
-                        losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+                        losses = cal_losses(il_trainer, il_loss, data, is_replay=True, scaler=scaler)
                         if losses == None:
                             continue
                             
@@ -267,7 +267,7 @@ def train_process(il_trainer : IL_Trainer):
                 change_beta(il_trainer, is_replay=True)
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     start = time.time()
-                    losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
+                    losses = cal_losses(il_trainer, il_loss, data, is_replay=True, scaler=scaler)
                     if losses == None:
                         continue
                     end = time.time()
