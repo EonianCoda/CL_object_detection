@@ -234,7 +234,7 @@ class ClassificationModel(nn.Module):
         
         # copy old weight and bias    
         for i in range(self.num_anchors):
-            self.output.weight.data[i * self.num_classes:i * self.num_classes + num_old_class,:,:,:] = old_output.weight.data[i * num_old_class:(i+1) * num_old_class,:,:,:] 
+            self.output.weight.data[i * self.num_classes:i * self.num_classes + num_old_class,...] = old_output.weight.data[i * num_old_class:(i+1) * num_old_class,...] 
             self.output.bias.data[i * self.num_classes:i * self.num_classes + num_old_class] = old_output.bias.data[i * num_old_class:(i+1) * num_old_class]
         
 

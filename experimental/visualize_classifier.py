@@ -25,7 +25,7 @@ def get_classifier_weights(model):
     for i in range(num_anchors):
         start_idx = i * num_classes
         for class_idx in range(num_classes):
-            classed_parameters[class_idx]['weight'].append(output_weight.data[start_idx + class_idx,:,:,:])
+            classed_parameters[class_idx]['weight'].append(output_weight.data[start_idx + class_idx,...])
             classed_parameters[class_idx]['bias'].append(output_bias.data[start_idx + class_idx])
     for class_idx in range(num_classes):
         classed_parameters[class_idx]['weight'] = torch.cat(classed_parameters[class_idx]['weight'])
