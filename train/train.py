@@ -21,7 +21,6 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
     # with torch.cuda.amp.autocast():
 
     warm_classifier = (il_trainer.cur_warm_stage != -1) and (il_trainer.params['warm_layers'][il_trainer.cur_warm_stage] == 'output')
-    il_trainer.optimizer.zero_grad()
     with torch.cuda.amp.autocast():
     #with torch.cuda.device(0):
         losses = il_loss.forward(data['img'].float().cuda(), data['annot'].cuda(), is_replay=is_replay)
@@ -48,8 +47,8 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
 
         #loss.backward()
         scaler.scale(loss).backward()
-        # if not warm_classifier and not il_trainer.params['no_clip']:
-        #     torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+        scaler.unscale_(il_trainer.optimizer)
+        torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), max_norm=0.1)
 
         # warm classifier
         if warm_classifier:
@@ -67,6 +66,7 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
 
         scaler.step(il_trainer.optimizer)
         scaler.update()
+        il_trainer.optimizer.zero_grad(set_to_none=True)
         #il_trainer.optimizer.step()
         il_trainer.loss_hist.append(float(loss))
         loss_info['total_loss'] = float(loss)
