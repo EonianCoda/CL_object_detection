@@ -177,9 +177,9 @@ def train_process(il_trainer : IL_Trainer):
             end_epoch = il_trainer.params['new_state_epoch']
         
         il_trainer.end_epoch = end_epoch
-        il_trainer.do_backward = True 
         for cur_epoch in range(start_epoch, end_epoch + 1):
             il_trainer.cur_epoch = cur_epoch
+            il_trainer.do_backward = True 
             # Some Log 
             avg_times = []
             epoch_loss = []
