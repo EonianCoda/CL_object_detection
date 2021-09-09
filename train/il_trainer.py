@@ -47,6 +47,7 @@ class IL_Trainer(object):
         self.params = params
         self.cur_epoch = 0 
         self.end_epoch = 0
+        self.do_backward = False
 
         
         # training setting

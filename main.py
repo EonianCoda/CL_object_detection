@@ -21,10 +21,7 @@ ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
 PRINT_INFO = True # whether print some information about continual learning on the scrren
 DEFAULT_ALPHA = 0.25
 DEFAULT_GAMMA = 2.0
-DEFAULT_BATCH_SIZE = 5
-
-
-
+DEFAULT_BATCH_SIZE = 4
 
 def str2bool(v):
     if isinstance(v, bool):

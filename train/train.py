@@ -44,27 +44,36 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             loss_info['mas_loss'] = float(mas_loss)
             loss += mas_loss
 
-        loss.backward()
-        if not warm_classifier and not il_trainer.params['no_clip']:
-            torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+        # every two iteration, updatet the parameters
+        loss /= 2
+        loss.backward(retain_graph=(not il_trainer.do_backward))
 
-        # warm classifier
-        if warm_classifier:
-            classificationModel = il_trainer.model.classificationModel
-            cur_state = il_trainer.cur_state
-            num_classes = il_trainer.params.states[cur_state]['num_knowing_class']
-            num_old_classes = il_trainer.params.states[cur_state]['num_past_class']
-            for i in range(classificationModel.num_anchors):
-                start_idx = i *  num_classes
-                classificationModel.output.weight.grad[start_idx : start_idx + num_old_classes,:,:,:] = 0
-                classificationModel.output.bias.grad[start_idx : start_idx + num_old_classes] = 0
-        #Agem fix gradient
-        if not is_replay and il_trainer.params['agem']:
-            il_trainer.agem.fix_grad(il_trainer.model)
 
-        il_trainer.optimizer.step()
-        il_trainer.loss_hist.append(float(loss))
-        loss_info['total_loss'] = float(loss)
+        if il_trainer.do_backward:
+            if not warm_classifier and not il_trainer.params['no_clip']:
+                torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
+
+            # warm classifier
+            if warm_classifier:
+                classificationModel = il_trainer.model.classificationModel
+                cur_state = il_trainer.cur_state
+                num_classes = il_trainer.params.states[cur_state]['num_knowing_class']
+                num_old_classes = il_trainer.params.states[cur_state]['num_past_class']
+                for i in range(classificationModel.num_anchors):
+                    start_idx = i *  num_classes
+                    classificationModel.output.weight.grad[start_idx : start_idx + num_old_classes,:,:,:] = 0
+                    classificationModel.output.bias.grad[start_idx : start_idx + num_old_classes] = 0
+            #Agem fix gradient
+            if not is_replay and il_trainer.params['agem']:
+                il_trainer.agem.fix_grad(il_trainer.model)
+
+            il_trainer.optimizer.step()
+            il_trainer.optimizer.zero_grad(set_to_none=True)
+        
+        # losses are divided by 2, when recording, restore it
+        il_trainer.loss_hist.append(float(loss) * 2)
+        loss_info['total_loss'] = float(loss) * 2
+        
 
         del losses
     return loss_info
@@ -86,9 +95,11 @@ def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_
     
     info.extend([np.mean(il_trainer.loss_hist), spend_time])
     print(output.format(info))
+    if il_trainer.do_backward:
+        print("update")
 
 def cal_losses(il_trainer, il_loss, data, is_replay=False):
-    fast_zero_grad(il_trainer.model)
+    # fast_zero_grad(il_trainer.model)
     if not il_trainer.params['debug']:
         try:
             losses = training_iteration(il_trainer,il_loss, data, is_replay)
@@ -152,6 +163,8 @@ def train_process(il_trainer : IL_Trainer):
     # init IL loss
     il_loss = IL_Loss(il_trainer)
 
+
+    
     for cur_state in range(start_state, end_state  + 1):
         print("State: {}".format(cur_state))
         print("Train epoch from {} to {}".format(start_epoch, end_epoch))
@@ -164,6 +177,7 @@ def train_process(il_trainer : IL_Trainer):
             end_epoch = il_trainer.params['new_state_epoch']
         
         il_trainer.end_epoch = end_epoch
+        il_trainer.do_backward = True 
         for cur_epoch in range(start_epoch, end_epoch + 1):
             il_trainer.cur_epoch = cur_epoch
             # Some Log 
@@ -179,6 +193,8 @@ def train_process(il_trainer : IL_Trainer):
 
             num_training_iter = len(il_trainer.dataloader_train)
 
+
+            # init mixdata
             replay_exist =  (il_trainer.params['agem'] == False) and (il_trainer.dataset_replay != None)
             if replay_exist and il_trainer.params['mix_data']:
                 num_replay_iter = len(il_trainer.dataloader_replay)
@@ -203,14 +219,17 @@ def train_process(il_trainer : IL_Trainer):
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
+                if iter_num == len(il_trainer.dataloader_train) - 1:
+                    il_trainer.do_backward = True
+                else:
+                    il_trainer.do_backward = not il_trainer.do_backward
+
                 change_beta(il_trainer, is_replay=False)
-
-
                 start = time.time()
                 if il_trainer.params['agem']:
                     il_trainer.agem.cal_replay_grad(il_loss)
                     
-                
+
                 losses = cal_losses(il_trainer, il_loss, data, is_replay=False)
                 if losses != None:
                     #continue
@@ -228,6 +247,11 @@ def train_process(il_trainer : IL_Trainer):
                 if replay_exist and not_warm_classifier and il_trainer.params['mix_data'] and cur_epoch > il_trainer.params['mix_data_start']  and iter_num in do_replay_ids:
                     change_beta(il_trainer, is_replay=True)
                     for i in range(do_replay_num[replay_iter_num]):
+                        if iter_num == len(il_trainer.dataloader_train) - 1 and i == do_replay_num[replay_iter_num] - 1:
+                            il_trainer.do_backward = True
+                        else:
+                            il_trainer.do_backward = not il_trainer.do_backward
+
                         data = replay_generator.next()
                         start = time.time()
                         losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
@@ -252,6 +276,12 @@ def train_process(il_trainer : IL_Trainer):
 
                 change_beta(il_trainer, is_replay=True)
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
+                    if iter_num == len(il_trainer.dataloader_replay) - 1:
+                        il_trainer.do_backward = True
+                    else:
+                        il_trainer.do_backward = not il_trainer.do_backward
+
+
                     start = time.time()
                     losses = cal_losses(il_trainer, il_loss, data, is_replay=True)
                     if losses == None:
@@ -303,5 +333,3 @@ def train_process(il_trainer : IL_Trainer):
             if il_trainer.params['record']:
                 recorder.next_state()
     recorder.end_write()
-        
-        
