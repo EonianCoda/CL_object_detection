@@ -8,7 +8,7 @@ import torch
 from evaluator import Evaluator, multi_evaluation
 
 
-ROOT_DIR = "/home/deeplab307/Documents/Anaconda/Shiang/IL/"
+ROOT_DIR = "/content/drive/My Drive/work/"
 DEFAULT_THRESHOLD = 0.05
 DEFAULT_DEPTH = 50
 
