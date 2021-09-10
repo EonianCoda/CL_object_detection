@@ -70,9 +70,9 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             il_trainer.optimizer.step()
             il_trainer.optimizer.zero_grad(set_to_none=True)
         
-        # losses are divided by 2, when recording, restore it
-        il_trainer.loss_hist.append(float(loss) * 2)
-        loss_info['total_loss'] = float(loss) * 2
+        # losses are divided by every_iter, when recording, restore it
+        il_trainer.loss_hist.append(float(loss) * il_trainer.params['every_iter'])
+        loss_info['total_loss'] = float(loss) * il_trainer.params['every_iter']
         
 
         del losses

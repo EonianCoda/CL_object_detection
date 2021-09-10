@@ -289,8 +289,38 @@ class Replay_dataset(IL_dataset):
             future_CIDs.extend(self.states[i]['new_class']['id'])
 
         self.sample_imgs(self.seen_class_id, set(self.coco.get_imgs_by_cats(future_CIDs)))
+    
         
+    def load_annotations(self, image_index):
+        # get ground truth annotations
+        annotations_ids = self.coco.getAnnIds(imgIds=self.image_ids[image_index], iscrowd=False)
+        annotations     = np.zeros((0, 5))
 
+        # some images appear to miss annotations (like image with id 257034)
+        if len(annotations_ids) == 0:
+            return annotations
+
+        # parse annotations
+        coco_annotations = self.coco.loadAnns(annotations_ids)
+        for idx, ann in enumerate(coco_annotations):
+            #When the category doesn't exist in this state, then ignored it 
+            if(ann['category_id'] not in self.seen_class_ids[image_index]):
+                continue
+
+            # some annotations have basically no width / height, skip them
+            if ann['bbox'][2] < 1 or ann['bbox'][3] < 1:
+                continue
+
+            annotation        = np.zeros((1, 5))
+            annotation[0, :4] = ann['bbox']
+            annotation[0, 4]  = self.coco_label_to_label(ann['category_id'])
+            annotations       = np.append(annotations, annotation, axis=0)
+
+        # transform from [x, y, w, h] to [x1, y1, x2, y2]
+        annotations[:, 2] = annotations[:, 0] + annotations[:, 2]
+        annotations[:, 3] = annotations[:, 1] + annotations[:, 3]
+
+        return annotations
 
 
 
