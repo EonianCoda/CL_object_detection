@@ -45,11 +45,11 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
             loss += mas_loss
 
         # every two iteration, updatet the parameters
-        loss /= 2
-        loss.backward(retain_graph=(not il_trainer.do_backward))
+        loss /= il_trainer.params['every_iter']
+        loss.backward(retain_graph=(not il_trainer.is_backward()))
 
 
-        if il_trainer.do_backward:
+        if il_trainer.is_backward():
             if not warm_classifier and not il_trainer.params['no_clip']:
                 torch.nn.utils.clip_grad_norm_(il_trainer.model.parameters(), 0.1)
 
@@ -95,7 +95,7 @@ def print_iteration_info(il_trainer, losses, cur_epoch:int, iter_num:int, spend_
     
     info.extend([np.mean(il_trainer.loss_hist), spend_time])
     print(output.format(info))
-    if il_trainer.do_backward:
+    if il_trainer.is_backward():
         print("update")
 
 def cal_losses(il_trainer, il_loss, data, is_replay=False):
@@ -179,7 +179,7 @@ def train_process(il_trainer : IL_Trainer):
         il_trainer.end_epoch = end_epoch
         for cur_epoch in range(start_epoch, end_epoch + 1):
             il_trainer.cur_epoch = cur_epoch
-            il_trainer.do_backward = True 
+            il_trainer.backward_count = 0
             # Some Log 
             avg_times = []
             epoch_loss = []
@@ -217,12 +217,15 @@ def train_process(il_trainer : IL_Trainer):
 
                 print('Num Replay images: {}'.format(len(il_trainer.dataset_replay)))
                 print('Iteration_num: ',len(il_trainer.dataloader_replay))
+
+
+            do_mix_data = il_trainer.params['mix_data'] and (cur_epoch > il_trainer.params['mix_data_start'])
             # Training Dataset
             for iter_num, data in enumerate(il_trainer.dataloader_train):
-                if iter_num == len(il_trainer.dataloader_train) - 1:
-                    il_trainer.do_backward = True
+                if iter_num == len(il_trainer.dataloader_train) - 1 and (not (replay_exist and not_warm_classifier and do_mix_data and iter_num in do_replay_ids)):
+                    il_trainer.backward_next(is_tail=True)
                 else:
-                    il_trainer.do_backward = not il_trainer.do_backward
+                    il_trainer.backward_next(is_tail=False)
 
                 change_beta(il_trainer, is_replay=False)
                 start = time.time()
@@ -243,14 +246,13 @@ def train_process(il_trainer : IL_Trainer):
                     recorder.add_iter_loss(losses)
 
                 #Replay dataset
-                
-                if replay_exist and not_warm_classifier and il_trainer.params['mix_data'] and cur_epoch > il_trainer.params['mix_data_start']  and iter_num in do_replay_ids:
+                if replay_exist and not_warm_classifier and do_mix_data and iter_num in do_replay_ids:
                     change_beta(il_trainer, is_replay=True)
                     for i in range(do_replay_num[replay_iter_num]):
                         if iter_num == len(il_trainer.dataloader_train) - 1 and i == do_replay_num[replay_iter_num] - 1:
-                            il_trainer.do_backward = True
+                            il_trainer.backward_next(is_tail=True)
                         else:
-                            il_trainer.do_backward = not il_trainer.do_backward
+                            il_trainer.backward_next(is_tail=False)
 
                         data = replay_generator.next()
                         start = time.time()
@@ -277,9 +279,9 @@ def train_process(il_trainer : IL_Trainer):
                 change_beta(il_trainer, is_replay=True)
                 for iter_num, data in enumerate(il_trainer.dataloader_replay):
                     if iter_num == len(il_trainer.dataloader_replay) - 1:
-                        il_trainer.do_backward = True
+                        il_trainer.backward_next(is_tail=True)
                     else:
-                        il_trainer.do_backward = not il_trainer.do_backward
+                        il_trainer.backward_next(is_tail=False)
 
 
                     start = time.time()

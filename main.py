@@ -158,6 +158,7 @@ def get_parser(args=None):
     parser.add_argument('--final_correction', type=str2bool, default=False)
     parser.add_argument('--mix_data', type=str2bool, default=False)
     parser.add_argument('--mix_data_start', type=int, default=0)
+    parser.add_argument('--every_iter', type=int, default=2)
 
     # Record
     parser.add_argument('--output_examplar', help='whether output the .png for examplars, default = True',  type=str2bool, default=True)

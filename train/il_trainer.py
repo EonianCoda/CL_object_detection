@@ -47,9 +47,8 @@ class IL_Trainer(object):
         self.params = params
         self.cur_epoch = 0 
         self.end_epoch = 0
-        self.do_backward = False
+        self.backward_count = 0
 
-        
         # training setting
         self.model = model
         self.optimizer = optimizer
@@ -88,6 +87,17 @@ class IL_Trainer(object):
             self.update_mas()
 
             self.add_persuado_label()
+    
+    def is_backward(self):
+        if self.backward_count == 0:
+            return True
+        else:
+            return False
+    def backward_next(self, is_tail=False):
+        if is_tail:
+            self.backward_count = 0
+        else:
+            self.backward_count = (self.backward_count + 1) %  self.params['every_iter']
 
     def add_persuado_label(self):
         if self.params['persuado_label'] == False:
