@@ -46,7 +46,8 @@ def training_iteration(il_trainer:IL_Trainer, il_loss:IL_Loss, data, is_replay=F
 
         # every two iteration, updatet the parameters
         loss /= il_trainer.params['every_iter']
-        loss.backward(retain_graph=(not il_trainer.is_backward()))
+        loss.backward()
+        # loss.backward(retain_graph=(not il_trainer.is_backward()))
 
 
         if il_trainer.is_backward():
