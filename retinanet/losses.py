@@ -148,8 +148,10 @@ class ProtoTypeFocalLoss(nn.Module):
             else:
                 cls_loss = torch.where(torch.ne(targets, -1.0), cls_loss, torch.zeros(cls_loss.shape))
 
+            bg_losses.append(cls_loss[torch.eq(targets, 0.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
+            fg_losses.append(cls_loss[torch.eq(targets, 1.0)].sum() /torch.clamp(num_positive_anchors.float(), min=1.0))
 
-            classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
+            # classification_losses.append(cls_loss.sum()/torch.clamp(num_positive_anchors.float(), min=1.0))
 
 
             # if incremental_state and params['enhance_on_new']:
@@ -208,7 +210,7 @@ class ProtoTypeFocalLoss(nn.Module):
                 else:
                     regression_losses.append(torch.tensor(0).float())
 
-         # cal prototype_loss
+        # cal prototype_loss
         pos_indices = torch.cat(pos_indices) #shape = (batch_size, all_anchor_num / 9, 9)
         pos_targets = torch.cat(pos_targets)
         
@@ -243,10 +245,6 @@ class ProtoTypeFocalLoss(nn.Module):
                   'prototype_loss': prototype_loss}
         
         if incremental_state:
-            # if params['enhance_on_new']:
-            #     if enhance_loss_on_new != None:
-            #         enhance_loss_on_new /= classifications.shape[0]
-            #     result['enhance_loss_on_new'] = enhance_loss_on_new
             if params['distill']:
                 result['bg_masks'] = torch.cat(bg_masks)
         return result
